@@ -5,8 +5,12 @@ import cookieParser from 'cookie-parser';
 import pino from 'pino';
 import pinoHttpDefault from 'pino-http';
 import { env } from './env.js';
-import { auth } from './routes/auth.routes.js';
+import { login } from './routes/auth.routes.js';
+import { registration } from './routes/registration.routes.js';
+import { adminReg } from './routes/admin.registration.routes.js';
+import { requireAuth } from './middlewares/auth.js';
 import { errorHandler } from './middlewares/error.js';
+
 
 const app = express();
 const logger = pino({ transport: { target: 'pino-pretty' }});
@@ -21,7 +25,10 @@ app.use(cookieParser());
 
 // routes
 app.get('/health', (_req, res) => res.json({ ok: true }));
-app.use('/api/v1/auth', auth);
+app.use('/api/v1/auth', login);
+app.use('/api/v1/registration', registration);
+app.use('/api/v1/admin', requireAuth, adminReg); // requireAuth sets req.user
+
 
 // errors
 app.use(errorHandler);

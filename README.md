@@ -7,20 +7,6 @@ Tech stack: **Node.js (TypeScript)**, **Express**, **Prisma ORM**, **PostgreSQL*
 
 ---
 
-## ✨ Features (MVP)
-- Email/password registration with **Argon2id** hashing
-- Login → **JWT access** (short-lived) + **refresh** (HttpOnly cookie)
-- Token **rotation** (`/refresh`) and **logout** (refresh revocation)
-- Input validation with **Zod**
-- Security middleware: **Helmet**, **CORS**, **Rate limiting**
-- Structured logging with **pino** / `pino-http`
-- **Prisma** database layer with migrations
-- Dockerized **PostgreSQL**
-
-> Next milestones: TOTP MFA, Google OAuth2, email verification / reset tokens, Document/Signature/Verification entities, blockchain anchoring.
-
----
-
 ## 🧱 Project Structure
 
 ```
@@ -31,18 +17,20 @@ src/
   prisma.ts
   routes/
     auth.routes.ts
+    registration.routes.ts
+    admin.registration.routes.ts
   middlewares/
     error.ts
     auth.ts
     rateLimit.ts
-  schemas/
-    auth.schema.ts
-  services/
-    auth.service.ts
+    requireAdmin.ts
+  crypto/
+    ed25519.ts
   utils/
     tokens.ts
 prisma/
   schema.prisma
+  seed.ts
 docker-compose.yml
 tsconfig.json
 package.json
@@ -114,9 +102,61 @@ docker compose up -d
 
 ```bash
 npm install
-npx prisma migrate dev --name init
+npx prisma migrate reset
+npx prisma migrate dev --name blocksign
 ```
 
+## Seed the admin user
+Seed the admin:
+```bash
+npm run prisma:seed
+```
+
+## 🔑 Generate Keys
+
+### 1: Generate key pair for admin
+```bash
+node scripts/keygen.mjs
+```
+
+This outputs:
+```
+PUBLIC_KEY_HEX: <copy for DB>
+PRIVATE_KEY_HEX: <save securely>
+```
+
+### 2: Push admin's public key into db
+```bash
+node scripts/admin-set-key.js <public-key>
+```
+
+### 3: Get a challenge
+```bash
+POST http://localhost:4000/api/v1/auth/challenge
+body: {"email": "admin's email"}
+```
+### 4: Sign it with private key and  obtain signature
+```bash
+node sign.mjs <PRIVATE_KEY_HEX> "message-to-sign"
+```
+
+### 5: Complete login 
+```bash
+POST http://localhost:4000/api/v1/auth/complete
+{
+    "email": "admin@blocksign.local",
+    "challenge": "challenge",
+    "signatureB64": "signature" 
+}
+```
+and gain accessToken from response body.
+
+
+### 6: Use this JWT token for access to admin routes
+```bash
+GET http://localhost:4000/api/v1/admin/registrations
+Authorization: Bearer {access-token}
+```
 ---
 
 ## ▶️ Run in Development
@@ -137,124 +177,12 @@ Add this script if not present:
 }
 ```
 
-**Or** with `ts-node` ESM loader:
-```json
-"scripts": {
-  "dev": "node --loader ts-node/esm --no-warnings ./src/server.ts"
-}
-```
-
 > In ESM you **must** add `.js` to relative imports between your own files at runtime, e.g. `import { env } from './env.js'` (TypeScript maps it to `.ts`).
 ---
 
 ## 🔒 Auth API
 
 Base path: `/api/v1/auth`
-
-### Register
-`POST /api/v1/auth/register`  
-Body:
-```json
-{
-  "email": "alice@example.com",
-  "fullName": "Alice Example",
-  "password": "Aa123456",
-  "phone": "+37360000000"
-}
-```
-Response `201`:
-```json
-{
-  "user": {
-    "id": "uuid",
-    "email": "alice@example.com",
-    "fullName": "Alice Example",
-    "role": "USER"
-  }
-}
-```
-
-### Login
-`POST /api/v1/auth/login`  
-Body:
-```json
-{
-  "email": "alice@example.com",
-  "password": "Aa123456"
-}
-```
-Response `200`:
-```json
-{
-  "accessToken": "eyJhbGci...",
-  "user": {
-    "id": "uuid",
-    "email": "alice@example.com",
-    "fullName": "Alice Example",
-    "role": "USER"
-  }
-}
-```
-- Sets `refresh_token` **HttpOnly** cookie (7 days by default).
-
-### Refresh
-`POST /api/v1/auth/refresh`  
-- Rotates refresh token (cookie) and returns a new **access token**.
-
-Response `200`:
-```json
-{ "accessToken": "eyJhbGci..." }
-```
-
-### Logout
-`POST /api/v1/auth/logout`  
-- Revokes the stored refresh token and clears the cookie.  
-Response `204`.
-
----
-
-## 🧪 Quick cURL tests
-
-```bash
-# Register
-curl -X POST http://localhost:4000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"a@b.com","fullName":"Alice","password":"Aa123456"}'
-
-# Login (save cookies)
-curl -X POST http://localhost:4000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -c cookies.txt \
-  -d '{"email":"a@b.com","password":"Aa123456"}'
-
-# Refresh (send cookies)
-curl -X POST http://localhost:4000/api/v1/auth/refresh \
-  -b cookies.txt
-
-# Logout
-curl -X POST http://localhost:4000/api/v1/auth/logout -b cookies.txt
-```
-
----
-
-## 🛡️ Security Notes
-
-- **Passwords**: Argon2id hashing.
-- **JWT**: short-lived access, long-lived refresh (HttpOnly cookie), rotation on refresh.
-- **CORS**: set `CORS_ORIGIN` to your frontend origin.
-- **Helmet** & **rate limiting** enabled on auth endpoints.
-- **Validation**: Zod schemas on inputs.
-- **Sessions**: stateless (access token), refresh tokens stored in DB and revocable.
-
----
-
-## 🧰 Troubleshooting
-
-- **“Must use import to load ES Module”**: you’re running CJS with ESM files. Use ESM loader (`node --loader ts-node/esm` or `tsx`) **or** switch project to CJS (see above).
-- **“Cannot find module '../x' in ESM”**: add `.js` to your **own** relative imports in ESM (e.g., `../utils/tokens.js`).
-- **`expiresIn` error with `jsonwebtoken`**: ensure `.env` values are plain (`15m`, `7d`) without curly quotes; confirm they’re defined.
-- **Prisma `phone` type**: Prisma `String?` = `string | null`. Normalize `undefined` to `null` when writing: `phone: input.phone ?? null`.
-- **Restart TS server**: VS Code → Command Palette → *TypeScript: Restart TS Server*.
 
 ---
 
@@ -269,6 +197,73 @@ npm run prisma:studio
 ```
 
 ---
+## 👤 User Registration Flow
+
+### 1. User submits registration request
+```bash
+curl -X POST http://localhost:4000/registration/request   -H "Content-Type: application/json"   -d '{"email":"user1@example.com","fullName":"Alice Example"}'
+```
+
+### 2. Admin lists pending requests
+```bash
+curl -X GET http://localhost:4000/admin/registration/requests   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
+```
+
+### 3. Admin approves request
+```bash
+curl -X POST http://localhost:4000/admin/registration/approve   -H "Content-Type: application/json"   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"   -d '{"email":"user1@example.com"}'
+```
+
+User receives an email (simulated, check logs) with a link.
+
+### 4. User completes registration with public key
+```bash
+curl -X POST http://localhost:4000/registration/complete   -H "Content-Type: application/json"   -d '{
+    "email":"user1@example.com",
+    "publicKeyEd25519":"<PUBLIC_KEY_HEX>"
+  }'
+```
+
+---
+
+## 🔐 Login Flow (Passwordless)
+
+### 1. Start login: request challenge
+```bash
+curl -X POST http://localhost:4000/auth/challenge   -H "Content-Type: application/json"   -d '{"email":"user1@example.com"}'
+```
+
+Response:
+```json
+{ "challenge": "P78F0gnAdOcc..." }
+```
+
+### 2. User signs challenge
+```bash
+node scripts/sign.mjs P78F0gnAdOcc...
+```
+
+Output:
+```
+SIGNATURE_B64: vC58Hm7npg+QFIZM...
+```
+
+### 3. Complete login
+```bash
+curl -X POST http://localhost:4000/auth/complete   -H "Content-Type: application/json"   -d '{
+    "email":"user1@example.com",
+    "challenge":"P78F0gnAdOcc...",
+    "signatureB64":"vC58Hm7npg+QFIZM..."
+  }'
+```
+
+Response:
+```json
+{
+  "accessToken":"<JWT>",
+  "user":{ "id":"...", "email":"user1@example.com", "fullName":"Alice Example", "role":"USER" }
+}
+```
 
 ## 📜 License
 MIT.

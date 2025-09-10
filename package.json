@@ -9,7 +9,8 @@
     "build": "tsc -p .",
     "start": "node dist/server.js",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "repository": {
     "type": "git",
@@ -23,6 +24,8 @@
   },
   "homepage": "https://github.com/AlexDandy77/BlockSign-BackEnd#readme",
   "dependencies": {
+    "@noble/ed25519": "^3.0.0",
+    "@noble/hashes": "^2.0.0",
     "@prisma/client": "^6.15.0",
     "argon2": "^0.44.0",
     "cookie-parser": "^1.4.7",
