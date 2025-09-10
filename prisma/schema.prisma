@@ -18,18 +18,33 @@ enum UserRole {
 }
 
 model User {
-  id            String     @id @default(uuid())
-  email         String     @unique
-  fullName      String
-  passwordHash  String
-  phone         String?    @db.VarChar(32)
-  role          UserRole   @default(USER)
-  status        UserStatus @default(ACTIVE)
-  mfaSecret     String?    // reserve for later (TOTP)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id               String     @id @default(uuid())
+  email            String     @unique
+  fullName         String
+  publicKeyEd25519 String? // set after final registration (email link step)
+  keyCreatedAt     DateTime?
+  phone            String?    @db.VarChar(32)
+  role             UserRole   @default(USER)
+  status           UserStatus @default(ACTIVE)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  refreshTokens RefreshToken[]
+  refreshTokens   RefreshToken[]        @relation("UserRefreshTokens")
+  documentsOwned  Document[]            @relation("UserDocumentsOwned")
+  docParticipants DocumentParticipant[] @relation("UserDocumentParticipants")
+  signatures      Signature[]           @relation("UserSignatures")
+  webAuthnCreds   WebAuthnCredential[]
+
+  createdFromRequestId String?
+}
+
+model WebAuthnCredential {
+  id           String   @id @default(uuid())
+  userId       String
+  credentialId String   @unique
+  publicKeyPem String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model RefreshToken {
@@ -39,8 +54,131 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
+}
+
+enum DocStatus {
+  DRAFT
+  PENDING
+  FINALIZED
+  REJECTED
+}
+
+model Document {
+  id         String    @id @default(uuid())
+  ownerId    String
+  title      String
+  mimeType   String
+  sizeBytes  Int
+  sha256Hex  String    @db.VarChar(64)
+  status     DocStatus @default(DRAFT)
+  storageKey String // object storage key (minio/s3/gcs)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  owner        User                  @relation("UserDocumentsOwned", fields: [ownerId], references: [id])
+  participants DocumentParticipant[]
+  signatures   Signature[]
+  anchor       ChainAnchor?
+
+  @@index([sha256Hex])
+}
+
+model DocumentParticipant {
+  id         String    @id @default(uuid())
+  documentId String
+  userId     String
+  orderIndex Int
+  required   Boolean   @default(true)
+  joinedAt   DateTime  @default(now())
+  decision   String?
+  decidedAt  DateTime?
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation("UserDocumentParticipants", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+}
+
+model Signature {
+  id           String   @id @default(uuid())
+  documentId   String
+  userId       String
+  alg          String
+  signatureB64 String
+  signedAt     DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation("UserSignatures", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+}
+
+model ChainAnchor {
+  id          String   @id @default(uuid())
+  documentId  String   @unique
+  chain       String
+  txId        String
+  blockNumber Int?
+  anchoredAt  DateTime @default(now())
+  anchorHash  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  COMPLETED // user finished email step, uploaded publicKey, proved control
+}
+
+model RegistrationRequest {
+  id        String             @id @default(uuid())
+  email     String             @unique
+  fullName  String
+  phone     String?            @db.VarChar(32)
+  idnp      String?            @db.VarChar(32) // if you want to store local identifier temporarily
+  createdAt DateTime           @default(now())
+  status    RegistrationStatus @default(PENDING)
+  decidedAt DateTime?
+  decidedBy String? // admin user id
+  note      String?
+
+  // After APPROVED we create EmailToken to finalize
+  finalizeTokens EmailToken[]
+}
+
+/**
+ * One-time email tokens used to finish registration and upload public key
+ */
+model EmailToken {
+  id           String    @id @default(uuid())
+  regRequestId String
+  token        String    @unique // random 32+ bytes base64url
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  regRequest RegistrationRequest @relation(fields: [regRequestId], references: [id], onDelete: Cascade)
+
+  @@index([regRequestId])
+  @@index([expiresAt])
+}
+
+/**
+ * Login challenges for challenge-response login
+ */
+model LoginChallenge {
+  id        String    @id @default(uuid())
+  email     String
+  challenge String // base64url random
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([email])
   @@index([expiresAt])
 }
