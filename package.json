@@ -14,15 +14,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AlexDandy77/BlockSign-BackEnd.git"
+    "url": "git+https://github.com/AlexDandy77/BlockSign-Server.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/AlexDandy77/BlockSign-BackEnd/issues"
+    "url": "https://github.com/AlexDandy77/BlockSign-Server/issues"
   },
-  "homepage": "https://github.com/AlexDandy77/BlockSign-BackEnd#readme",
+  "homepage": "https://github.com/AlexDandy77/BlockSign-Server#readme",
   "dependencies": {
     "@noble/ed25519": "^3.0.0",
     "@noble/hashes": "^2.0.0",

@@ -106,58 +106,22 @@ npx prisma migrate reset
 npx prisma migrate dev --name blocksign
 ```
 
+## 📦 Scripts
+
+```bash
+npm run dev        # start in dev
+npm run build      # compile to dist/
+npm start          # run compiled app
+npm run prisma:migrate
+npm run prisma:studio
+```
+---
+
 ## Seed the admin user
 Seed the admin:
 ```bash
 npm run prisma:seed
 ```
-
-## 🔑 Generate Keys
-
-### 1: Generate key pair for admin
-```bash
-node scripts/keygen.mjs
-```
-
-This outputs:
-```
-PUBLIC_KEY_HEX: <copy for DB>
-PRIVATE_KEY_HEX: <save securely>
-```
-
-### 2: Push admin's public key into db
-```bash
-node scripts/admin-set-key.js <public-key>
-```
-
-### 3: Get a challenge
-```bash
-POST http://localhost:4000/api/v1/auth/challenge
-body: {"email": "admin's email"}
-```
-### 4: Sign it with private key and  obtain signature
-```bash
-node sign.mjs <PRIVATE_KEY_HEX> "message-to-sign"
-```
-
-### 5: Complete login 
-```bash
-POST http://localhost:4000/api/v1/auth/complete
-{
-    "email": "admin@blocksign.local",
-    "challenge": "challenge",
-    "signatureB64": "signature" 
-}
-```
-and gain accessToken from response body.
-
-
-### 6: Use this JWT token for access to admin routes
-```bash
-GET http://localhost:4000/api/v1/admin/registrations
-Authorization: Bearer {access-token}
-```
----
 
 ## ▶️ Run in Development
 
@@ -180,49 +144,99 @@ Add this script if not present:
 > In ESM you **must** add `.js` to relative imports between your own files at runtime, e.g. `import { env } from './env.js'` (TypeScript maps it to `.ts`).
 ---
 
-## 🔒 Auth API
+## 🔑 Initial setup for admin login 
 
-Base path: `/api/v1/auth`
-
----
-
-## 📦 Scripts
-
+### 1: Generate key pair for admin
 ```bash
-npm run dev        # start in dev
-npm run build      # compile to dist/
-npm start          # run compiled app
-npm run prisma:migrate
-npm run prisma:studio
+node scripts/keygen.mjs
 ```
 
+This outputs:
+```
+PUBLIC_KEY_HEX: <copy for DB>
+PRIVATE_KEY_HEX: <save securely>
+```
+
+### 2: Push admin's public key into db
+```bash
+node scripts/admin-set-key.js <public-key>
+```
+
+### 3: Get a challenge
+**/1 Start the server**
+```bash
+npm run dev
+```
+
+**/2 Request challenge**
+```bash
+POST http://localhost:4000/api/v1/auth/challenge
+body: {"email": "admin's email"}
+```
+### 4: Sign it with private key and  obtain signature
+```bash
+node sign.mjs <PRIVATE_KEY_HEX> "message-to-sign"
+```
+
+### 5: Complete login 
+```bash
+POST http://localhost:4000/api/v1/auth/complete
+{
+    "email": "admin@blocksign.local",
+    "challenge": "challenge",
+    "signatureB64": "signature" 
+}
+```
+and get **accessToken** from response body.
+
+
+### 6: Use this JWT token for access to admin routes
+```bash
+GET http://localhost:4000/api/v1/admin/registrations
+Authorization: Bearer {access-token}
+```
 ---
+
+## 🔒 Auth API
+
+Base path: `/api/v1/`
+
+---
+
 ## 👤 User Registration Flow
 
 ### 1. User submits registration request
 ```bash
-curl -X POST http://localhost:4000/registration/request   -H "Content-Type: application/json"   -d '{"email":"user1@example.com","fullName":"Alice Example"}'
+curl -X POST http://localhost:4000/api/v1/registration/request   -H "Content-Type: application/json"   -d '{"email": "alexisdandy15@gmail.com", "fullName": "Alexei Pavlovschii", "phone": "777777777",
+    "idnp": "8888888888888"
+}'
 ```
+and gets **requestId** in response body.
 
 ### 2. Admin lists pending requests
 ```bash
-curl -X GET http://localhost:4000/admin/registration/requests   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
+curl -X GET http://localhost:4000/api/v1/admin/registration/requests   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
 ```
 
 ### 3. Admin approves request
 ```bash
-curl -X POST http://localhost:4000/admin/registration/approve   -H "Content-Type: application/json"   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"   -d '{"email":"user1@example.com"}'
+curl -X POST http://localhost:4000/api/v1/admin/registrations/{requestId}/approve   -H "Content-Type: application/json"   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
 ```
 
-User receives an email (simulated, check logs) with a link.
+User receives an email (simulated, check logs) with a link (**token** in response body at dev stage).
 
-### 4. User completes registration with public key
+### 4. Client generates a new key pair
+The key pair is generated, private key is saved in secure memory and given for the user to save. With private key client signs token.
+
+### 5. User completes registration with public key and token signature
 ```bash
-curl -X POST http://localhost:4000/registration/complete   -H "Content-Type: application/json"   -d '{
-    "email":"user1@example.com",
-    "publicKeyEd25519":"<PUBLIC_KEY_HEX>"
+curl -X POST http://localhost:4000/api/v1/registrations/complete   -H "Content-Type: application/json"   -d '{
+    "token":"token",
+    "publicKeyEd25519":"<PUBLIC_KEY_HEX>",
+    "signatureB64": "<signature-of-the-token>"
   }'
 ```
+This results in successful finish of registering a user. Now he can login via api/v1/auth/challenge.
 
 ---
 
@@ -230,7 +244,7 @@ curl -X POST http://localhost:4000/registration/complete   -H "Content-Type: app
 
 ### 1. Start login: request challenge
 ```bash
-curl -X POST http://localhost:4000/auth/challenge   -H "Content-Type: application/json"   -d '{"email":"user1@example.com"}'
+curl -X POST http://localhost:4000/api/v1/auth/challenge   -H "Content-Type: application/json"   -d '{"email":"user1@example.com"}'
 ```
 
 Response:
@@ -250,7 +264,7 @@ SIGNATURE_B64: vC58Hm7npg+QFIZM...
 
 ### 3. Complete login
 ```bash
-curl -X POST http://localhost:4000/auth/complete   -H "Content-Type: application/json"   -d '{
+curl -X POST http://localhost:4000/api/v1/auth/complete   -H "Content-Type: application/json"   -d '{
     "email":"user1@example.com",
     "challenge":"P78F0gnAdOcc...",
     "signatureB64":"vC58Hm7npg+QFIZM..."

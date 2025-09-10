@@ -51,11 +51,11 @@ registration.post('/complete', async (req, res, next) => {
     if (rr.status !== 'APPROVED') return res.status(400).json({ error: 'Registration not approved' });
 
     // Verify signature: message = token UTF-8
-    const msg = new TextEncoder().encode(token);
-    const sig = Buffer.from(signatureB64, 'base64');
     const pub = Buffer.from(publicKeyEd25519Hex, 'hex');
+    const msg = Buffer.from(token, 'utf8');
+    const sig = Buffer.from(signatureB64, 'base64');
 
-    const ok = await ed.verify(sig, msg, pub);
+    const ok = await ed.verifyAsync(sig, msg, pub);
     if (!ok) return res.status(400).json({ error: 'Signature verification failed' });
 
     // Create or upsert user
