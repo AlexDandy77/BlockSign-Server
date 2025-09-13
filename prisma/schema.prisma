@@ -154,6 +154,23 @@ model RegistrationRequest {
 /**
  * One-time email tokens used to finish registration and upload public key
  */
+enum OtpPurpose {
+  REGISTER_EMAIL
+}
+
+model EmailOtp {
+  id          String     @id @default(uuid())
+  email       String
+  purpose     OtpPurpose
+  codeHash    String     // HMAC-SHA256 of the 6-digit code
+  attemptCount Int       @default(0)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@index([email, purpose])
+}
+
 model EmailToken {
   id           String    @id @default(uuid())
   regRequestId String

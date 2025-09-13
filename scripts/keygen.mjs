@@ -1,6 +1,4 @@
-// keygen.mjs (ESM)
-// Usage:
-//   node keygen.mjs
+// Usage: node scripts/keygen.mjs
 
 import * as ed from '@noble/ed25519';
 

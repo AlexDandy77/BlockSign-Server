@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.2.0] - 2025-09-13
+### Added
+- **Email messaging** with Ethereal:
+  - Mail templates and functions to send email (`mailer.ts`) and OTP 6-digit code mechanism (`otp.ts`) which can generate a code, hash it, save it in the db, and verify code.
+- Updated **README.md** with:
+  - Email sending description process.
+- Prisma database schema `prisma/schema.prisma` with:
+  - New EmailOtp model and OtpPurpose enum.
+
+### Changed
+- Added email-related code to:
+  - `registration.routes.ts`  
+  - `admin.registration.routes.ts`
+
+---
 
 ## [1.1.0] - 2025-09-10
 ### Added

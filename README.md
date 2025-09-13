@@ -10,30 +10,44 @@ Tech stack: **Node.js (TypeScript)**, **Express**, **Prisma ORM**, **PostgreSQL*
 ## 🧱 Project Structure
 
 ```
+prisma/
+  schema.prisma
+  seed.ts
+scripts/
+  admin-set-key.js
+  keygen.mjs
+  sign.mjs
+  verify.mjs
 src/
-  app.ts
-  server.ts
-  env.ts
-  prisma.ts
-  routes/
-    auth.routes.ts
-    registration.routes.ts
-    admin.registration.routes.ts
+  crypto/
+    ed25519.ts
+  email/
+    mailer.ts
+    otp.ts
   middlewares/
     error.ts
     auth.ts
     rateLimit.ts
     requireAdmin.ts
-  crypto/
-    ed25519.ts
+  routes/
+    auth.routes.ts
+    registration.routes.ts
+    admin.registration.routes.ts
   utils/
     tokens.ts
-prisma/
-  schema.prisma
-  seed.ts
+  app.ts
+  env.ts
+  prisma.ts
+  server.ts
+.env
+.gitignore
+CHANGELOG.md
 docker-compose.yml
-tsconfig.json
+LICENSE
+package-lock.json
 package.json
+README.md
+tsconfig.json
 ```
 
 ---
@@ -62,6 +76,14 @@ JWT_SECRET="set-a-secret"
 PORT=4000
 CORS_ORIGIN=http://localhost:5173
 NODE_ENV=development
+
+# Fake Email (Ethereal)
+SMTP_HOST=smtp.ethereal.email
+SMTP_PORT=587
+SMTP_USER=theodora8@ethereal.email
+SMTP_PASS=gAtWSpgpz6vXF6nCyX
+MAIL_FROM="BlockSign <no-reply@blocksign.local>"
+APP_URL=http://localhost:5173
 ```
 
 > **Tip:** If you ever see `Error: "expiresIn" should be a number of seconds or string representing a timespan`, check for smart quotes in `.env` or undefined env vars.
@@ -106,14 +128,16 @@ npx prisma migrate reset
 npx prisma migrate dev --name blocksign
 ```
 
+---
+
 ## 📦 Scripts
 
 ```bash
 npm run dev        # start in dev
 npm run build      # compile to dist/
 npm start          # run compiled app
-npm run prisma:migrate
-npm run prisma:studio
+npm run prisma:migrate # migrate db schema
+npm run prisma:studio  # start db dashboard
 ```
 ---
 
@@ -122,6 +146,8 @@ Seed the admin:
 ```bash
 npm run prisma:seed
 ```
+
+---
 
 ## ▶️ Run in Development
 
@@ -279,6 +305,11 @@ Response:
 }
 ```
 
+---
+## Fake Email Mechanism
+The emails are sent via fake email service Ethereal (https://ethereal.email/messages). You can create an account and save credentials, then put them in .env file. The working credentials are provided in this README at .env description.
+
+---
 ## 📜 License
 MIT.
 
