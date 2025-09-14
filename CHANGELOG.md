@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.2.1] - 2025-09-14
+### Added
+- **Mnemonic phrase generation** with same @scure/bip39 library:
+  - Key generation (`keygen.mjs`) now generates a mnemonic phrase.
+- Separate mnemonic to private key mechanism (`mnemonic-to-priv-key.mjs`):
+  - Front-end script that calculates private key for further signature generation.
+
+---
+
 ## [1.2.0] - 2025-09-13
 ### Added
 - **Email messaging** with Ethereal:

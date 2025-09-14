@@ -179,8 +179,9 @@ node scripts/keygen.mjs
 
 This outputs:
 ```
+MNEMONIC: <tell the user>
 PUBLIC_KEY_HEX: <copy for DB>
-PRIVATE_KEY_HEX: <save securely>
+PRIVATE_KEY_HEX: <for client to generate signature>
 ```
 
 ### 2: Push admin's public key into db
