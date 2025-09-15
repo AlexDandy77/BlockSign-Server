@@ -3,7 +3,9 @@ import { prisma } from '../prisma.js';
 import { requireAdmin } from '../middlewares/requireAdmin.js';
 import crypto from 'crypto';
 import { addMinutes } from 'date-fns';
+import { sendEmail, finalizeTemplate } from '../email/mailer.js';
 
+const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 export const adminReg = Router();
 
 adminReg.use(requireAdmin);
@@ -19,7 +21,7 @@ adminReg.get('/registrations', async (_req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Approve: create EmailToken and (TODO) send email with link
+// Approve: create EmailToken and send email with link
 adminReg.post('/registrations/:id/approve', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -34,8 +36,7 @@ adminReg.post('/registrations/:id/approve', async (req, res, next) => {
       prisma.emailToken.create({ data: { regRequestId: id, token, expiresAt } })
     ]);
 
-    // TODO: send email with frontend link, e.g. https://app/finish?token=...
-    // await sendFinalizeEmail(rr.email, token)
+    await sendEmail(rr.email, 'Finalize your registration', finalizeTemplate(token, APP_URL));
 
     res.json({ ok: true, token }); // return token now for dev
   } catch (e) { next(e); }

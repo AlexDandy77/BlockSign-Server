@@ -1,5 +1,4 @@
-// verify.mjs
-// Usage: node verify.mjs <PUBLIC_KEY_HEX> "message-to-verify" <SIGNATURE_B64>
+// Usage: node scripts/verify.mjs <PUBLIC_KEY_HEX> "message-to-verify" <SIGNATURE_B64>
 
 import * as ed from '@noble/ed25519';
 

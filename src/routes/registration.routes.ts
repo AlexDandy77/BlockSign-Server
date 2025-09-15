@@ -2,10 +2,45 @@ import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { z } from 'zod';
 import * as ed from '@noble/ed25519';
+import { sendEmail, otpTemplate, finalizeTemplate } from '../email/mailer.js';
+import { createEmailOtp, verifyEmailOtp } from '../email/otp.js';
+import { addMinutes } from 'date-fns';
+import crypto from 'crypto';
+
+const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 export const registration = Router();
 
-// request registration
+// Send OTP to verify email
+const startSchema = z.object({ email: z.string().email() });
+
+registration.post('/request/start', async (req, res, next) => {
+  try {
+    const { email } = startSchema.parse(req.body);
+
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return res.status(409).json({ error: 'Email already registered' });
+
+    const { code } = await createEmailOtp(email, 10);
+    await sendEmail(email, 'Your verification code', otpTemplate(code));
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+// Verify OTP — unlock the next step
+const verifySchema = z.object({ email: z.string().email(), code: z.string().length(6) });
+
+registration.post('/request/verify', async (req, res, next) => {
+  try {
+    const { email, code } = verifySchema.parse(req.body);
+    const { ok, reason } = await verifyEmailOtp(email, code);
+    if (!ok) return res.status(400).json({ error: reason || 'Invalid code' });
+    // Flag the session/email as verified in your client (JWT or temp session)
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+// Request registration
 const requestSchema = z.object({
   email: z.string().email(),
   fullName: z.string().min(1).max(120),
@@ -17,7 +52,6 @@ registration.post('/request', async (req, res, next) => {
   try {
     const data = requestSchema.parse(req.body);
 
-    // if an existing RegistrationRequest exists, block or update based on policy
     const existing = await prisma.registrationRequest.findUnique({ where: { email: data.email } });
     if (existing && existing.status !== 'DECLINED') {
       return res.status(409).json({ error: 'A request for this email already exists' });
@@ -33,10 +67,10 @@ registration.post('/request', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// complete registration with token and public key
+// Complete registration with token and public key
 const completeSchema = z.object({
   token: z.string().min(10),
-  publicKeyEd25519Hex: z.string().min(64), // hex
+  publicKeyEd25519Hex: z.string().min(64),
   signatureB64: z.string()
 });
 
@@ -50,7 +84,7 @@ registration.post('/complete', async (req, res, next) => {
     const rr = et.regRequest;
     if (rr.status !== 'APPROVED') return res.status(400).json({ error: 'Registration not approved' });
 
-    // Verify signature: message = token UTF-8
+    // Verify signature
     const pub = Buffer.from(publicKeyEd25519Hex, 'hex');
     const msg = Buffer.from(token, 'utf8');
     const sig = Buffer.from(signatureB64, 'base64');

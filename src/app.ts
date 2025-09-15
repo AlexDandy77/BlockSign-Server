@@ -11,11 +11,9 @@ import { adminReg } from './routes/admin.registration.routes.js';
 import { requireAuth } from './middlewares/auth.js';
 import { errorHandler } from './middlewares/error.js';
 
-
 const app = express();
 const logger = pino({ transport: { target: 'pino-pretty' }});
 const pinoHttp = (pinoHttpDefault as unknown as (opts?: any) => any);
-
 
 app.use(pinoHttp({ logger }));
 app.use(helmet());
@@ -28,7 +26,6 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/v1/auth', login);
 app.use('/api/v1/registration', registration);
 app.use('/api/v1/admin', requireAuth, adminReg); // requireAuth sets req.user
-
 
 // errors
 app.use(errorHandler);

@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.2.2] - 2025-09-15
+### Changed
+- **Real email messaging** now available and secured:
+  -  Changed (`mailer.ts`) to secure: true.
+
+---
+## [1.2.1] - 2025-09-14
+### Added
+- **Mnemonic phrase generation** with same @scure/bip39 library:
+  - Key generation (`keygen.mjs`) now generates a mnemonic phrase.
+- Separate mnemonic to private key mechanism (`mnemonic-to-priv-key.mjs`):
+  - Front-end script that calculates private key for further signature generation.
+
+---
+
+## [1.2.0] - 2025-09-13
+### Added
+- **Email messaging** with Ethereal:
+  - Mail templates and functions to send email (`mailer.ts`) and OTP 6-digit code mechanism (`otp.ts`) which can generate a code, hash it, save it in the db, and verify code.
+- Updated **README.md** with:
+  - Email sending description process.
+- Prisma database schema `prisma/schema.prisma` with:
+  - New EmailOtp model and OtpPurpose enum.
+
+### Changed
+- Added email-related code to:
+  - `registration.routes.ts`  
+  - `admin.registration.routes.ts`
+
+---
 
 ## [1.1.0] - 2025-09-10
 ### Added

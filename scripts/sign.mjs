@@ -1,5 +1,4 @@
-// sign.mjs
-// Usage: node sign.mjs <PRIVATE_KEY_HEX> "message-to-sign"
+// Usage: node scripts/sign.mjs <PRIVATE_KEY_HEX> "message-to-sign"
 
 import * as ed from '@noble/ed25519';
 
