@@ -10,14 +10,14 @@ if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !MAIL_FROM) {
 
 export const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
-  port: Number(SMTP_PORT || 587),
-  secure: false,
+  port: Number(SMTP_PORT),
+  secure: true,
   auth: { user: SMTP_USER, pass: SMTP_PASS }
 });
 
 export async function sendEmail(to: string, subject: string, html: string) {
   const info = await transporter.sendMail({
-    from: MAIL_FROM,
+    from: MAIL_FROM || `BlockSign <${SMTP_USER}>`,
     to,
     subject,
     html

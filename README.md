@@ -77,12 +77,12 @@ PORT=4000
 CORS_ORIGIN=http://localhost:5173
 NODE_ENV=development
 
-# Fake Email (Ethereal)
-SMTP_HOST=smtp.ethereal.email
-SMTP_PORT=587
-SMTP_USER=theodora8@ethereal.email
-SMTP_PASS=gAtWSpgpz6vXF6nCyX
-MAIL_FROM="BlockSign <no-reply@blocksign.local>"
+# Email 
+SMTP_HOST=mail.blocksign.md
+SMTP_PORT=<port>
+SMTP_USER=<email@address.user>
+SMTP_PASS=<password-user>
+MAIL_FROM="BlockSign <info@blocksign.md>"
 APP_URL=http://localhost:5173
 ```
 
@@ -307,11 +307,9 @@ Response:
 ```
 
 ---
-## Fake Email Mechanism
-The emails are sent via fake email service Ethereal (https://ethereal.email/messages). You can create an account and save credentials, then put them in .env file. The working credentials are provided in this README at .env description.
+## Real Email Mechanism
+Get credentials from your SMTP provider and put them into .env file.
 
 ---
 ## 📜 License
-MIT.
-
----
+This project is secured under MIT license.

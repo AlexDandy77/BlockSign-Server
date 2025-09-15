@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.2.2] - 2025-09-15
+### Changed
+- **Real email messaging** now available and secured:
+  -  Changed (`mailer.ts`) to secure: true.
+
+---
 ## [1.2.1] - 2025-09-14
 ### Added
 - **Mnemonic phrase generation** with same @scure/bip39 library:
