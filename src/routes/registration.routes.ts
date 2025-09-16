@@ -2,10 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { z } from 'zod';
 import * as ed from '@noble/ed25519';
-import { sendEmail, otpTemplate, finalizeTemplate } from '../email/mailer.js';
+import { sendEmail, otpTemplate } from '../email/mailer.js';
 import { createEmailOtp, verifyEmailOtp } from '../email/otp.js';
-import { addMinutes } from 'date-fns';
-import crypto from 'crypto';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
@@ -42,7 +40,7 @@ registration.post('/request/verify', async (req, res, next) => {
 
 // Request registration
 const requestSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   fullName: z.string().min(1).max(120),
   phone: z.string().min(5).max(20),
   idnp: z.string().min(5).max(20)

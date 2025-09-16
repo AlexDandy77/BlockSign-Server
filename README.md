@@ -242,7 +242,7 @@ and gets **requestId** in response body.
 
 ### 2. Admin lists pending requests
 ```bash
-curl -X GET http://localhost:4000/api/v1/admin/registration/requests   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
+curl -X GET http://localhost:4000/api/v1/admin/registrations/requests   -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"
 ```
 
 ### 3. Admin approves request
@@ -257,7 +257,7 @@ The key pair is generated, private key is saved in secure memory and given for t
 
 ### 5. User completes registration with public key and token signature
 ```bash
-curl -X POST http://localhost:4000/api/v1/registrations/complete   -H "Content-Type: application/json"   -d '{
+curl -X POST http://localhost:4000/api/v1/registration/complete   -H "Content-Type: application/json"   -d '{
     "token":"token",
     "publicKeyEd25519":"<PUBLIC_KEY_HEX>",
     "signatureB64": "<signature-of-the-token>"

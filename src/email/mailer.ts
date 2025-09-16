@@ -36,7 +36,7 @@ export function otpTemplate(code: string) {
 }
 
 export function finalizeTemplate(token: string, linkBase: string) {
-  const url = `${linkBase.replace(/\/$/, '')}/finish-registration?token=${encodeURIComponent(token)}`;
+  const url = `${linkBase.replace(/\/$/, '')}/register/finish?token=${encodeURIComponent(token)}`;
   return `
   <div style="font-family:Arial,sans-serif">
     <h2>Finish your BlockSign registration</h2>
