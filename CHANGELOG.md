@@ -15,7 +15,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **Naming** of some export variables for clarity:
-  -  Changed to (`requireAuth.ts`) and (`requireAdmin.ts`). Both for User and Admin routes needed (`requireAuth`), which is when client sends a JWT token, but for Admin routes additionally needed (`requireAdmin`), that checks whether the role, encrypted in JWT matches the `ADMIN`.
+  - Changed to (`requireAuth.ts`) and (`requireAdmin.ts`). Both for User and Admin routes needed (`requireAuth`), which is when client sends a JWT token, but for Admin routes additionally needed (`requireAdmin`), that checks whether the role, encrypted in JWT matches the `ADMIN`.
+  - Changed `admin.registration.routes.ts` to `admin.routes.ts`, admin now has additional user routes.
 
 ---
 ## [1.2.2] - 2025-09-15

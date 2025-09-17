@@ -5,8 +5,6 @@ import * as ed from '@noble/ed25519';
 import { sendEmail, otpTemplate } from '../email/mailer.js';
 import { createEmailOtp, verifyEmailOtp } from '../email/otp.js';
 
-const APP_URL = process.env.APP_URL || 'http://localhost:5173';
-
 export const registration = Router();
 
 // Send OTP to verify email
@@ -17,7 +15,7 @@ registration.post('/request/start', async (req, res, next) => {
     const { email } = startSchema.parse(req.body);
 
     const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) return res.status(409).json({ error: 'Email already registered' });
+    if (exists) return res.status(409).json({ ok: false, error: 'Email already registered' });
 
     const { code } = await createEmailOtp(email, 10);
     await sendEmail(email, 'Your verification code', otpTemplate(code));
