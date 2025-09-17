@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.3.0] - 2025-09-17
+### Added
+- **Refresh token** mechanism:
+  - Reads refresh_token cookie and returns new access_token.
+- **Logout** mechanism:
+  - Deletes cookie.
+- **User routes** created:
+  -  Created new file (`user.routes.ts`) which for now has `/me` route and returns user information.
+
+### Changed
+- **Naming** of some export variables for clarity:
+  -  Changed to (`requireAuth.ts`) and (`requireAdmin.ts`). Both for User and Admin routes needed (`requireAuth`), which is when client sends a JWT token, but for Admin routes additionally needed (`requireAdmin`), that checks whether the role, encrypted in JWT matches the `ADMIN`.
+
+---
 ## [1.2.2] - 2025-09-15
 ### Changed
 - **Real email messaging** now available and secured:
