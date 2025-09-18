@@ -5,10 +5,11 @@ export const user = Router();
 
 // Get current user profile 
 user.get('/me', async (req, res, next) => {
+  console.log(req);
   try {
-    const { sub } = (req as any).auth as { sub: string };
+    const { id } = (req as any).user as { id: string };
     const user = await prisma.user.findUnique({
-      where: { id: sub },
+      where: { id },
       select: {
         id: true, email: true, fullName: true, role: true, status: true,
         createdAt: true, updatedAt: true

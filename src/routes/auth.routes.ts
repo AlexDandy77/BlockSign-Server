@@ -66,21 +66,26 @@ auth.post('/complete', async (req, res, next) => {
       data: { userId: user.id, token: refreshToken, expiresAt: addMinutes(new Date(), 60 * 24 * 7) }
     });
 
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-
-    res.json({ accessToken, user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role } });
+    res.json({ accessToken, refreshToken, user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role } });
   } catch (e) { next(e); }
 });
 
 auth.post('/refresh', async (req, res) => {
   try {
-    const token = req.cookies?.['refresh_token'];
-    if (!token) return res.status(401).json({ error: 'Missing refresh token' });
+    // Try to get refresh token from cookie first (existing flow)
+    let token = req.cookies?.['refresh_token'];
+    
+    // If no cookie, try Authorization header (for NextAuth)
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      } 
+    }
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Missing refresh token' });
+    }
 
     // Ensure token exists in DB and not expired/revoked
     const stored = await prisma.refreshToken.findUnique({ where: { token } });
@@ -115,14 +120,22 @@ auth.post('/refresh', async (req, res) => {
       })
     ]);
 
-    res.cookie('refresh_token', newRefresh, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    // Check if this is a NextAuth request (don't set cookie for NextAuth)
+    const isNextAuth = req.headers['x-auth-type'] === 'nextauth';
+    
+    if (!isNextAuth) {
+      res.cookie('refresh_token', newRefresh, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
+    }
 
-    return res.json({ accessToken });
+    return res.json({ 
+      accessToken,
+      refreshToken: isNextAuth ? newRefresh : undefined 
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to refresh token' });
