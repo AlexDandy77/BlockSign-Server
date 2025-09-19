@@ -37,7 +37,7 @@ admin.post('/registrations/:id/approve', async (req, res, next) => {
       prisma.emailToken.create({ data: { regRequestId: id, token, expiresAt } })
     ]);
 
-    await sendEmail(rr.email, 'Finalize your registration', finalizeTemplate(token, APP_URL));
+    await sendEmail(rr.email, 'Finalize your registration', finalizeTemplate(rr.email, token, APP_URL));
 
     res.json({ ok: true });
   } catch (e) { next(e); }

@@ -66,36 +66,37 @@ auth.post('/complete', async (req, res, next) => {
       data: { userId: user.id, token: refreshToken, expiresAt: addMinutes(new Date(), 60 * 24 * 7) }
     });
 
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
-
-    res.json({ accessToken, user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role } });
+    res.json({ accessToken, refreshToken, user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role } });
   } catch (e) { next(e); }
 });
 
 auth.post('/refresh', async (req, res) => {
   try {
-    const token = req.cookies?.['refresh_token'];
-    if (!token) return res.status(401).json({ error: 'Missing refresh token' });
+    let refreshToken = null;
+    
+    const cookieHeader = req.headers.cookie;
+    const cookieRefreshToken = cookieHeader?.match(/refresh_token=([^;]+)/);
+    if (cookieRefreshToken) {
+      refreshToken = cookieRefreshToken[1];
+    }
+    
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Missing refresh token' });
+    }
 
-    // Ensure token exists in DB and not expired/revoked
-    const stored = await prisma.refreshToken.findUnique({ where: { token } });
+    const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
     if (!stored || stored.expiresAt < new Date()) {
       // cleanup if present
-      await prisma.refreshToken.deleteMany({ where: { token } });
+      await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
 
     // verify JWT signature & claims
     let payload: { sub: string; role: 'USER' | 'ADMIN' };
     try {
-      payload = verifyToken(token) as any;
+      payload = verifyToken(refreshToken) as any;
     } catch {
-      await prisma.refreshToken.deleteMany({ where: { token } });
+      await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
 
@@ -105,7 +106,7 @@ auth.post('/refresh', async (req, res) => {
 
     // replace old token in DB (rotation)
     await prisma.$transaction([
-      prisma.refreshToken.deleteMany({ where: { token } }),
+      prisma.refreshToken.deleteMany({ where: { token: refreshToken } }),
       prisma.refreshToken.create({
         data: {
           userId: payload.sub,
@@ -115,34 +116,12 @@ auth.post('/refresh', async (req, res) => {
       })
     ]);
 
-    res.cookie('refresh_token', newRefresh, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000
+    return res.json({ 
+      accessToken,
+      refreshToken: newRefresh 
     });
-
-    return res.json({ accessToken });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Failed to refresh token' });
-  }
-});
-
-auth.post('/logout', async (req, res) => {
-  try {
-    const token = req.cookies?.['refresh_token'];
-    if (token) {
-      await prisma.refreshToken.deleteMany({ where: { token } });
-    }
-    res.clearCookie('refresh_token', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    });
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Failed to logout' });
   }
 });
