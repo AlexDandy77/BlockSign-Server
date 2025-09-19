@@ -5,7 +5,6 @@ export const user = Router();
 
 // Get current user profile 
 user.get('/me', async (req, res, next) => {
-  console.log(req);
   try {
     const { id } = (req as any).user as { id: string };
     const user = await prisma.user.findUnique({

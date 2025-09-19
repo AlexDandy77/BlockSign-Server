@@ -71,23 +71,20 @@ auth.post('/complete', async (req, res, next) => {
 });
 
 auth.post('/refresh', async (req, res) => {
+  console.log("this is request", req)
   try {
-    // Try to get refresh token from cookie first (existing flow)
-    let token = req.cookies?.['refresh_token'];
+    let token = null;
     
-    // If no cookie, try Authorization header (for NextAuth)
-    if (!token) {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.substring(7);
-      } 
+    const cookieHeader = req.headers.cookie;
+    const cookieRefreshToken = cookieHeader?.match(/refresh_token=([^;]+)/);
+    if (cookieRefreshToken) {
+      token = cookieRefreshToken[1];
     }
     
     if (!token) {
       return res.status(401).json({ error: 'Missing refresh token' });
     }
 
-    // Ensure token exists in DB and not expired/revoked
     const stored = await prisma.refreshToken.findUnique({ where: { token } });
     if (!stored || stored.expiresAt < new Date()) {
       // cleanup if present
@@ -120,21 +117,9 @@ auth.post('/refresh', async (req, res) => {
       })
     ]);
 
-    // Check if this is a NextAuth request (don't set cookie for NextAuth)
-    const isNextAuth = req.headers['x-auth-type'] === 'nextauth';
-    
-    if (!isNextAuth) {
-      res.cookie('refresh_token', newRefresh, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      });
-    }
-
     return res.json({ 
       accessToken,
-      refreshToken: isNextAuth ? newRefresh : undefined 
+      refreshToken: newRefresh 
     });
   } catch (err) {
     console.error(err);
