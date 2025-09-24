@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.4.0] - 2025-09-24
+### Added
+- **Attachments sending** supported:
+  - Now the email mechanism can send files to recipients so they can review them.
+- **Database** cleanup mechanism:
+  - Deletes data as soon as it is no more needed.
+- **Username** functionality:
+  -  Now user can create a unique username at register process so other users will be able to tag them as participants in documents.
+- **Document creation** mechanism:
+  - A user can now create a document.
+- **Helper script** to sign a payload.
+
+---
 ## [1.3.0] - 2025-09-17
 ### Added
 - **Refresh token** mechanism:

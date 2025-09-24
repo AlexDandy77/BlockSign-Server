@@ -9,7 +9,7 @@ import { auth } from './routes/auth.routes.js';
 
 import { registration } from './routes/registration.routes.js';
 import { admin } from './routes/admin.routes.js';
-import { user } from './routes/users.routes.js';
+import { user } from './routes/user.routes.js';
 
 import { requireAuth } from './middlewares/requireAuth.js';
 import { errorHandler } from './middlewares/error.js';
