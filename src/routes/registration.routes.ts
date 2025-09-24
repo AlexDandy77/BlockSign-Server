@@ -8,15 +8,15 @@ import { createEmailOtp, verifyEmailOtp } from '../email/otp.js';
 export const registration = Router();
 
 // Send OTP to verify email
-const startSchema = z.object({ email: z.string().email() });
+const startSchema = z.object({ email: z.string() });
 
 registration.post('/request/start', async (req, res, next) => {
   try {
     const { email } = startSchema.parse(req.body);
 
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) return res.status(409).json({ ok: false, error: 'Email already registered' });
-
+    const existsEmail = await prisma.user.findUnique({ where: { email } });
+    if (existsEmail) return res.status(409).json({ error: 'Email is already registered' });
+    
     const { code } = await createEmailOtp(email, 10);
     await sendEmail(email, 'Your verification code', otpTemplate(code));
     res.json({ ok: true });
@@ -24,14 +24,14 @@ registration.post('/request/start', async (req, res, next) => {
 });
 
 // Verify OTP — unlock the next step
-const verifySchema = z.object({ email: z.string().email(), code: z.string().length(6) });
+const verifySchema = z.object({ email: z.string(), code: z.string().length(6) });
 
 registration.post('/request/verify', async (req, res, next) => {
   try {
     const { email, code } = verifySchema.parse(req.body);
     const { ok, reason } = await verifyEmailOtp(email, code);
     if (!ok) return res.status(400).json({ error: reason || 'Invalid code' });
-    // Flag the session/email as verified in your client (JWT or temp session)
+    await prisma.emailOtp.deleteMany({ where: { email } });
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
@@ -41,7 +41,8 @@ const requestSchema = z.object({
   email: z.email(),
   fullName: z.string().min(1).max(120),
   phone: z.string().min(5).max(20),
-  idnp: z.string().min(5).max(20)
+  idnp: z.string().min(5).max(20),
+  username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/),
 });
 
 registration.post('/request', async (req, res, next) => {
@@ -53,10 +54,15 @@ registration.post('/request', async (req, res, next) => {
       return res.status(409).json({ error: 'A request for this email already exists' });
     }
 
+    const existingUser = await prisma.user.findUnique({ where: { username: data.username } });
+    if (existingUser) {
+      return res.status(409).json({ error: 'Username is already taken' });
+    }
+
     const rr = await prisma.registrationRequest.upsert({
       where: { email: data.email },
-      update: { fullName: data.fullName, phone: data.phone, idnp: data.idnp, status: 'PENDING' },
-      create: { email: data.email, fullName: data.fullName, phone: data.phone, idnp: data.idnp}
+      update: { username: data.username, fullName: data.fullName, phone: data.phone, idnp: data.idnp, status: 'PENDING' },
+      create: { email: data.email, username: data.username, fullName: data.fullName, phone: data.phone, idnp: data.idnp}
     });
 
     res.status(201).json({ requestId: rr.id });
@@ -92,6 +98,7 @@ registration.post('/complete', async (req, res, next) => {
     const user = await prisma.user.upsert({
       where: { email: rr.email },
       update: {
+        username: rr.username,
         fullName: rr.fullName,
         phone: rr.phone ?? null,
         publicKeyEd25519: publicKeyEd25519Hex.toLowerCase(),
@@ -100,6 +107,7 @@ registration.post('/complete', async (req, res, next) => {
       },
       create: {
         email: rr.email,
+        username: rr.username,
         fullName: rr.fullName,
         phone: rr.phone ?? null,
         publicKeyEd25519: publicKeyEd25519Hex.toLowerCase(),
@@ -111,8 +119,8 @@ registration.post('/complete', async (req, res, next) => {
     });
 
     await prisma.$transaction([
-      prisma.emailToken.update({ where: { id: et.id }, data: { usedAt: new Date() } }),
-      prisma.registrationRequest.update({ where: { id: rr.id }, data: { status: 'COMPLETED' } })
+      prisma.emailToken.delete({ where: { id: et.id } }),
+      prisma.registrationRequest.delete({ where: { id: rr.id } })
     ]);
 
     res.status(201).json({ user: { id: user.id, email: user.email, fullName: user.fullName } });

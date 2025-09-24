@@ -1,12 +1,11 @@
-// src/routes/auth.passwordless.routes.ts
 import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { addMinutes } from 'date-fns';
 import { addDays } from 'date-fns';
-import { ed } from '../crypto/ed25519.js';  // relative import needs .js with NodeNext
-import { signAccessToken, signRefreshToken, verifyToken, JwtPayload } from '../utils/tokens.js';
+import { ed } from '../crypto/ed25519.js'; 
+import { signAccessToken, signRefreshToken, verifyToken } from '../utils/tokens.js';
 
 
 export const auth = Router();
@@ -28,7 +27,7 @@ auth.post('/challenge', async (req, res, next) => {
 });
 
 const completeSchema = z.object({
-  email: z.string().email(),
+  email: z.string(),
   challenge: z.string(),
   signatureB64: z.string()
 });
@@ -54,8 +53,7 @@ auth.post('/complete', async (req, res, next) => {
     console.log('Signature valid?', ok);
     if (!ok) return res.status(401).json({ error: 'Signature verification failed' });
     
-    // mark used
-    await prisma.loginChallenge.update({ where: { id: lc.id }, data: { usedAt: new Date() } });
+    await prisma.loginChallenge.deleteMany({ where: { id: lc.id } });
 
     // issue tokens (same as your existing token strategy)
     const payload = { sub: user.id, role: user.role as 'USER' | 'ADMIN' };

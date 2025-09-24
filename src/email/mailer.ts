@@ -15,12 +15,13 @@ export const transporter = nodemailer.createTransport({
   auth: { user: SMTP_USER, pass: SMTP_PASS }
 });
 
-export async function sendEmail(to: string, subject: string, html: string) {
+export async function sendEmail(to: string, subject: string, html: string, extra?: Partial<nodemailer.SendMailOptions>) {
   const info = await transporter.sendMail({
     from: MAIL_FROM || `BlockSign <${SMTP_USER}>`,
     to,
     subject,
-    html
+    html,
+    ...extra
   });
   console.log('[mailer] sent:', info.messageId);
 }
