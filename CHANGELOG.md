@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.4.1] - 2025-09-25
+### Added
+- **Personal cabinet** improved:
+  - The `/me` user endpoint now returns all documents related to requesting user.
+- **Sign a document** mechanism:
+  - The user now can sign a document.
+- **Verify a document** feature:
+  - User can send a file and system will return info whether it is valid.
+
+### Changed
+- **Minor database** structure refinement.
+
+---
 ## [1.4.0] - 2025-09-24
 ### Added
 - **Attachments sending** supported:

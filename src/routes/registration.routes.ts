@@ -23,6 +23,7 @@ registration.post('/request/start', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// TODO: combine two routes: verify otp and request registration
 // Verify OTP — unlock the next step
 const verifySchema = z.object({ email: z.string(), code: z.string().length(6) });
 

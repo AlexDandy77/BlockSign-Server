@@ -113,8 +113,8 @@ model RefreshToken {
   id        String   @id @default(uuid())
   userId    String
   token     String   @unique
-  expiresAt DateTime
   createdAt DateTime @default(now())
+  expiresAt DateTime
 
   user User @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
 
@@ -124,7 +124,6 @@ model RefreshToken {
 
 // Documents
 enum DocStatus {
-  DRAFT
   PENDING
   SIGNED
   REJECTED
@@ -137,7 +136,7 @@ model Document {
   mimeType   String
   sizeBytes  Int
   sha256Hex  String    @db.VarChar(64)
-  status     DocStatus @default(DRAFT)
+  status     DocStatus
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   canonicalPayload String 
@@ -147,6 +146,8 @@ model Document {
   signatures   Signature[]
 
   @@index([sha256Hex])
+  @@index([ownerId])
+  @@index([status, createdAt])
 }
 
 model DocumentParticipant {
@@ -163,6 +164,8 @@ model DocumentParticipant {
   user     User     @relation("UserDocumentParticipants", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, userId])
+  @@index([userId, documentId])
+  @@index([documentId])
 }
 
 // Each signature is a detached Ed25519 signature over the canonicalPayload of the Document

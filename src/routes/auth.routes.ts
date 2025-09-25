@@ -10,8 +10,9 @@ import { signAccessToken, signRefreshToken, verifyToken } from '../utils/tokens.
 
 export const auth = Router();
 
+// TODO: integrate username in auth (user enters username or email)
 // Challenge routes
-const startSchema = z.object({ email: z.string().email() });
+const startSchema = z.object({ email: z.string() });
 auth.post('/challenge', async (req, res, next) => {
   try {
     const { email } = startSchema.parse(req.body);
@@ -73,9 +74,9 @@ auth.post('/refresh', async (req, res) => {
     let refreshToken = null;
     
     const cookieHeader = req.headers.cookie;
-    const cookieRefreshToken = cookieHeader?.match(/refresh_token=([^;]+)/);
+    const cookieRefreshToken = cookieHeader?.match(/refresh_token=[^;]+/);
     if (cookieRefreshToken) {
-      refreshToken = cookieRefreshToken[1];
+      refreshToken = cookieRefreshToken[0].split('=')[1];
     }
     
     if (!refreshToken) {

@@ -2,7 +2,7 @@
   
 import * as ed from '@noble/ed25519';
 
-const privHex = "a2d80e64e6816a4a5d23197499ef0a81f1bdbfa34814dd46155e91f3cd7756d5";
+const privHex = "f34b22d549a5bf1792fe93a7b2a239716b288f9188166424f57f268bcdf39ff7"; // now alex dandy user
 const payload = {
     sha256Hex: "00cf834bbb613215f65ab3ffc5f6f8d2ce9e3fda1045d50b3129c5f7a3743aa2",
     docTitle: "TestDoc",
