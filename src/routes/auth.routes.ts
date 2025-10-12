@@ -7,7 +7,6 @@ import { addDays } from 'date-fns';
 import { ed } from '../crypto/ed25519.js'; 
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/tokens.js';
 
-
 export const auth = Router();
 
 // TODO: integrate username in auth (user enters username or email)
@@ -23,7 +22,7 @@ auth.post('/challenge', async (req, res, next) => {
     const expiresAt = addMinutes(new Date(), 5);
 
     await prisma.loginChallenge.create({ data: { email, challenge, expiresAt } });
-    res.json({ challenge }); // client signs this with private key
+    res.json({ challenge });
   } catch (e) { next(e); }
 });
 
@@ -56,7 +55,6 @@ auth.post('/complete', async (req, res, next) => {
     
     await prisma.loginChallenge.deleteMany({ where: { id: lc.id } });
 
-    // issue tokens (same as your existing token strategy)
     const payload = { sub: user.id, role: user.role as 'USER' | 'ADMIN' };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
@@ -85,7 +83,6 @@ auth.post('/refresh', async (req, res) => {
 
     const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
     if (!stored || stored.expiresAt < new Date()) {
-      // cleanup if present
       await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }

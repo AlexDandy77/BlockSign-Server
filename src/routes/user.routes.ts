@@ -6,6 +6,7 @@ import multer from 'multer';
 import crypto from 'crypto';
 import { ed } from '../crypto/ed25519.js'; 
 import { sendEmail } from '../email/mailer.js';
+import { putPdfObject } from '../storage/s3.js';
 
 export const user = Router();
 user.use(requireUser);
@@ -80,7 +81,7 @@ user.get('/me', async (req, res, next) => {
 
 
 // Documents
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } }); // 25 MB cap
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } }); // 25 MB cap
 
 type CanonicalInput = {
   sha256Hex: string;
@@ -163,8 +164,13 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
       );
       if (!ok) return res.status(400).json({ error: 'Invalid creator signature' });
 
+      const docId = crypto.randomUUID();
+      const s3Key = `documents/${docId}.pdf`;
+      await putPdfObject(s3Key, req.file!.buffer, body.sha256Hex);
+
       const doc = await prisma.document.create({
         data: {
+          id: docId,
           ownerId: me.id,
           title: body.docTitle,
           mimeType: req.file.mimetype,
@@ -172,6 +178,7 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
           sha256Hex: body.sha256Hex.toLowerCase(),
           status: 'PENDING',
           canonicalPayload: canonical,
+          storageKey: s3Key,
           createdAt: createdAtIso,
           participants: {
             createMany: {

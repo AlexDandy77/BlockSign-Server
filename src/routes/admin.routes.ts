@@ -10,6 +10,23 @@ export const admin = Router();
 
 admin.use(requireAdmin);
 
+admin.get('/me', async (req, res, next) => {
+  try {
+    const { id } = (req as any).user as { id: string };
+
+    const me = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true, email: true, fullName: true, username: true,
+        role: true, status: true, createdAt: true, updatedAt: true
+      }
+    });
+    if (!me) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ admin: me});
+  } catch (e) { next(e); }
+});
+
 // Registration
 // Get all pending registration requests
 admin.get('/registrations', async (_req, res, next) => {

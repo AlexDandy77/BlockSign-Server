@@ -1,10 +1,9 @@
 import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
-import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@blocksign.local';
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@blocksign.md';
   const fullName = process.env.ADMIN_NAME ?? 'System Administrator';
 
   const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
@@ -21,8 +20,9 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       email: adminEmail,
-      username: 'admin',
       fullName,
+      username: 'admin',
+      phone: '13777',
       role: UserRole.ADMIN,
       status: UserStatus.ACTIVE,
     },
