@@ -140,7 +140,7 @@ model Document {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   canonicalPayload String
-  storageKey String?
+  storageKey String @unique
 
   owner        User                  @relation("UserDocumentsOwned", fields: [ownerId], references: [id])
   participants DocumentParticipant[]

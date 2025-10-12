@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { addMinutes } from 'date-fns';
 import { sendEmail, finalizeTemplate } from '../email/mailer.js';
 
-const APP_URL = process.env.APP_URL || 'http://localhost:5173';
+const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 export const admin = Router();
 
 admin.use(requireAdmin);

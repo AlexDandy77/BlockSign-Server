@@ -6,7 +6,7 @@ import multer from 'multer';
 import crypto from 'crypto';
 import { ed } from '../crypto/ed25519.js'; 
 import { sendEmail } from '../email/mailer.js';
-import { putPdfObject } from '../storage/s3.js';
+import { putPdfObject, getPresignedGetUrl } from '../storage/s3.js';
 
 export const user = Router();
 user.use(requireUser);
@@ -197,22 +197,18 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
         },
         include: { participants: { include: { user: { select: { email: true, username: true } } } } }
       });
-
       // Email participants (except creator) with PDF attached
       const recipients = doc.participants
         .filter(p => p.userId !== me.id)
         .map(p => p.user.email)
         .filter(Boolean) as string[];
       
-      console.log('Emailing participants:', recipients);
-
       if (recipients.length) {
         await sendEmail(
           recipients.join(','),
           `Document to review & sign: ${doc.title}`,
           `<p>You have a new document to review and sign: <b>${doc.title}</b>.</p>
-           <p>Verify its SHA-256 hash matches the payload shown in the app before signing.</p>`,
-          { attachments: [{ filename: `${doc.title}.pdf`, content: req.file.buffer, contentType: 'application/pdf' }] }
+           <p>Verify its SHA-256 hash matches the payload shown in the app before signing.</p>`
         );
       }
 
@@ -221,15 +217,40 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
   }
 );
 
+// Returns a 10-minute presigned GET link
+user.get('/documents/:id/url', async (req, res, next) => {
+  try {
+    const { id: userId } = (req as any).user as { id: string };
+    const { id: documentId } = req.params;
+
+    const doc = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: {
+        id: true,
+        ownerId: true,
+        storageKey: true,
+        participants: { select: { userId: true } }
+      }
+    });
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+
+    const isOwner = doc.ownerId === userId;
+    const isParticipant = doc.participants.some(p => p.userId === userId);
+    if (!isOwner && !isParticipant) return res.status(403).json({ error: 'Forbidden' });
+
+    if (!doc.storageKey) return res.status(409).json({ error: 'File not available' });
+
+    const url = await getPresignedGetUrl(doc.storageKey, 10 * 60);
+    res.json({ url, expiresIn: 600 });
+  } catch (e) { next(e); }
+});
+
 // Participant signs
 user.post('/documents/:docId/sign', async (req, res, next) => {
   try {
-    console.log('User', (req as any).user);
     const { id } = (req as any).user as { id: string };
     const { docId } = z.object({ docId: z.string() }).parse(req.params);
     const { signatureB64 } = z.object({ signatureB64: z.string() }).parse(req.body);
-
-    console.log(`User ${id} signing document ${docId}`);
 
     const doc = await prisma.document.findUnique({
       where: { id: docId },
@@ -281,7 +302,7 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
           recipients.join(','),
           `All parties signed: ${updated.title}`,
           `<p>Your document <b>${updated.title}</b> is fully signed.</p>
-           <p>You can verify at any time by re-hashing the PDF and checking in the app.</p>`
+           <p>You can verify at any time by uploading the PDF version in the app.</p>`
         );
       }
       return res.json({ status: 'SIGNED' });

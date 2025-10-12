@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.5.0] - 2025-10-12
+### Added
+- **AWS** document upload:
+  - The `/documents` user endpoint now saves the document to AWS storage.
+- **Getting a URL** of a document stored in AWS:
+  - The route `/documents/:id/url` returns a 10-minute valid link for viewing the document.
+
+### Changed
+- **Removed** sending documents by email.
+
+---
 ## [1.4.1] - 2025-09-25
 ### Added
 - **Personal cabinet** improved:
