@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.5.1] - 2025-11-18
+### Added
+- **Status** at document participant:
+  - Now DocumentParticipant model is updated with `decision` and `decidedAt` fields on signing and rejecting the document.
+- **Rejecting** a document:
+  - The route `/documents/:id/reject` rejects the document from participant's perspective and automatically the document is rejected.
+
+---
 ## [1.5.0] - 2025-10-12
 ### Added
 - **AWS** document upload:

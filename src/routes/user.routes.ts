@@ -275,6 +275,18 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
     );
     if (!ok) return res.status(400).json({ error: 'Invalid signature' });
 
+    const participant = doc.participants.find(p => p.userId === id);
+    if (!participant) return res.status(403).json({ error: 'Participant record not found' });
+
+    // Update participant decision
+    await prisma.documentParticipant.update({
+      where: { id: participant.id },
+      data: {
+        decision: 'SIGNED',
+        decidedAt: new Date()
+      }
+    });
+
     await prisma.signature.create({
       data: { documentId: docId, userId: id, alg: 'Ed25519', signatureB64 }
     });
@@ -309,6 +321,72 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
     }
 
     res.json({ status: 'PENDING' });
+  } catch (e) { next(e); }
+});
+
+// Participant rejects document
+user.post('/documents/:docId/reject', async (req, res, next) => {
+  try {
+    console.log("Reject endpoint called")
+    const { id } = (req as any).user as { id: string };
+    console.log("The id is: ", id)
+    const { docId } = z.object({ docId: z.string() }).parse(req.params);
+    const { reason } = z.object({ reason: z.string().optional() }).parse(req.body || {});
+
+    const doc = await prisma.document.findUnique({
+      where: { id: docId },
+      include: {
+        participants: true,
+        owner: { select: { email: true, fullName: true } },
+      }
+    });
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+    if (doc.status !== 'PENDING') return res.status(400).json({ error: 'Document is not pending' });
+
+    const participant = doc.participants.find(p => p.userId === id);
+    if (!participant) return res.status(403).json({ error: 'Not a participant' });
+
+    console.log('Participant decision status:', participant.decision);
+    if (participant.decision) {
+      return res.status(400).json({ error: 'Decision already made' });
+    }
+
+    // Update participant decision
+    await prisma.documentParticipant.update({
+      where: { id: participant.id },
+      data: {
+        decision: reason || 'REJECTED',
+        decidedAt: new Date()
+      }
+    });
+
+    // Update document status to REJECTED
+    const updated = await prisma.document.update({
+      where: { id: docId },
+      data: { status: 'REJECTED' },
+      include: {
+        owner: { select: { email: true } },
+        participants: { include: { user: { select: { email: true, fullName: true } } } }
+      }
+    });
+
+    // Notify owner and all participants
+    const recipients = [
+      updated.owner?.email,
+      ...updated.participants.map(p => p.user.email)
+    ].filter(Boolean) as string[];
+
+    if (recipients.length) {
+      const rejecter = updated.participants.find(p => p.userId === id);
+      await sendEmail(
+        recipients.join(','),
+        `Document rejected: ${updated.title}`,
+        `<p>Document <b>${updated.title}</b> has been rejected by ${rejecter?.user.fullName || 'a participant'}.</p>
+         ${reason ? `<p>Reason: ${reason}</p>` : ''}`
+      );
+    }
+
+    res.json({ status: 'REJECTED' });
   } catch (e) { next(e); }
 });
 
