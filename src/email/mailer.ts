@@ -1,33 +1,33 @@
 import nodemailer from 'nodemailer';
 
 const {
-  SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
+    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM
 } = process.env;
 
 if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !MAIL_FROM) {
-  console.warn('[mailer] SMTP env vars not fully set; emails may fail in dev.');
+    console.warn('[mailer] SMTP env vars not fully set; emails may fail in dev.');
 }
 
 export const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: Number(SMTP_PORT),
-  secure: true,
-  auth: { user: SMTP_USER, pass: SMTP_PASS }
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT),
+    secure: true,
+    auth: { user: SMTP_USER, pass: SMTP_PASS }
 });
 
 export async function sendEmail(to: string, subject: string, html: string, extra?: Partial<nodemailer.SendMailOptions>) {
-  const info = await transporter.sendMail({
-    from: MAIL_FROM || `BlockSign <${SMTP_USER}>`,
-    to,
-    subject,
-    html,
-    ...extra
-  });
-  console.log('[mailer] sent:', info.messageId);
+    const info = await transporter.sendMail({
+        from: MAIL_FROM || `BlockSign <${SMTP_USER}>`,
+        to,
+        subject,
+        html,
+        ...extra
+    });
+    console.log('[mailer] sent:', info.messageId);
 }
 
 export function otpTemplate(code: string) {
-  return `
+    return `
   <div style="font-family:Arial,sans-serif">
     <h2>Verify your email</h2>
     <p>Your verification code is:</p>
@@ -37,8 +37,8 @@ export function otpTemplate(code: string) {
 }
 
 export function finalizeTemplate(email: string, token: string, linkBase: string) {
-  const url = `${linkBase.replace(/\/$/, '')}/register/finish?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
-  return `
+    const url = `${linkBase.replace(/\/$/, '')}/register/finish?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    return `
   <div style="font-family:Arial,sans-serif">
     <h2>Finish your BlockSign registration</h2>
     <p>Click the button below to finalize your account setup:</p>

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const user = (req as any).user; // set by your JWT auth middleware
-  if (!user || user.role !== 'ADMIN') return res.status(403).json({ error: 'Admin only' });
-  next();
+    const user = (req as any).user; // set by your JWT auth middleware
+    if (!user || user.role !== 'ADMIN') return res.status(403).json({ error: 'Admin only' });
+    next();
 }

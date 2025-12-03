@@ -15,7 +15,7 @@ import { requireAuth } from './middlewares/requireAuth.js';
 import { errorHandler } from './middlewares/error.js';
 
 const app = express();
-const logger = pino({ transport: { target: 'pino-pretty' }});
+const logger = pino({ transport: { target: 'pino-pretty' } });
 const pinoHttp = (pinoHttpDefault as unknown as (opts?: any) => any);
 
 app.use(pinoHttp({ logger }));

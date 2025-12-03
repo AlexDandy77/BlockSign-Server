@@ -11,34 +11,34 @@ Tech stack: **Node.js (TypeScript)**, **Express**, **Prisma ORM**, **PostgreSQL*
 
 ```
 prisma/
-  schema.prisma
-  seed.ts
+    schema.prisma
+    seed.ts
 scripts/
-  admin-set-key.js
-  keygen.mjs
-  sign.mjs
-  verify.mjs
+    admin-set-key.js
+    keygen.mjs
+    sign.mjs
+    verify.mjs
 src/
-  crypto/
-    ed25519.ts
-  email/
-    mailer.ts
-    otp.ts
-  middlewares/
-    error.ts
-    auth.ts
-    rateLimit.ts
-    requireAdmin.ts
-  routes/
-    auth.routes.ts
-    registration.routes.ts
-    admin.registration.routes.ts
-  utils/
-    tokens.ts
-  app.ts
-  env.ts
-  prisma.ts
-  server.ts
+    crypto/
+        ed25519.ts
+    email/
+        mailer.ts
+        otp.ts
+    middlewares/
+        error.ts
+        auth.ts
+        rateLimit.ts
+        requireAdmin.ts
+    routes/
+        auth.routes.ts
+        registration.routes.ts
+        admin.registration.routes.ts
+    utils/
+        tokens.ts
+    app.ts
+    env.ts
+    prisma.ts
+    server.ts
 .env
 .gitignore
 CHANGELOG.md
@@ -97,19 +97,19 @@ Start Postgres locally:
 ```yaml
 # docker-compose.yml
 services:
-  db:
-    image: postgres:16
-    restart: always
-    environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
-      POSTGRES_DB: blocksign
-    ports:
-      - "5433:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    db:
+        image: postgres:16
+        restart: always
+        environment:
+            POSTGRES_USER: app
+            POSTGRES_PASSWORD: app
+            POSTGRES_DB: blocksign
+        ports:
+            - "5433:5432"
+        volumes:
+            - pgdata:/var/lib/postgresql/data
 volumes:
-  pgdata:
+    pgdata:
 ```
 
 Run it:

@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.5.2] - 2025-12-3
+### Added
+- **Cleanup** of expired LoginChallenges and RefreshTokens:
+  - New file `jobs/cleanup.ts` now starts a cron job that deletes expired tokens and challenges every hour.
+### Changed
+- **Indentation** of every file changed to 4:
+  - More readable.
+
+---
+## [1.5.1] - 2025-11-18
+### Added
+- **Status** at document participant:
+  - Now DocumentParticipant model is updated with `decision` and `decidedAt` fields on signing and rejecting the document.
+- **Rejecting** a document:
+  - The route `/documents/:id/reject` rejects the document from participant's perspective and automatically the document is rejected.
+
+---
+## [1.5.0] - 2025-10-12
+### Added
+- **AWS** document upload:
+  - The `/documents` user endpoint now saves the document to AWS storage.
+- **Getting a URL** of a document stored in AWS:
+  - The route `/documents/:id/url` returns a 10-minute valid link for viewing the document.
+
+### Changed
+- **Removed** sending documents by email.
+
+---
 ## [1.4.1] - 2025-09-25
 ### Added
 - **Personal cabinet** improved:
