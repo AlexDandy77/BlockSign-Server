@@ -79,7 +79,7 @@ user.get('/me', async (req, res, next) => {
 
 
 // Documents
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } }); // 25 MB cap
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } }); // 50 MB cap
 
 type CanonicalInput = {
     sha256Hex: string;
@@ -103,6 +103,16 @@ function buildCanonicalPayload(input: CanonicalInput) {
 
 function sha256Hex(buf: Buffer | Uint8Array) {
     return crypto.createHash('sha256').update(buf).digest('hex');
+}
+
+function escapeHtml(input: string) {
+    return input
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/`/g, '&#96;');
 }
 
 // Create document
@@ -164,7 +174,6 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
 
         const docId = crypto.randomUUID();
         const s3Key = `documents/${docId}.pdf`;
-        await putPdfObject(s3Key, req.file!.buffer, body.sha256Hex);
 
         const doc = await prisma.document.create({
             data: {
@@ -195,6 +204,9 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
             },
             include: { participants: { include: { user: { select: { email: true, username: true } } } } }
         });
+
+        await putPdfObject(s3Key, req.file!.buffer, body.sha256Hex);
+
         // Email participants (except creator) with PDF attached
         const recipients = doc.participants
             .filter(p => p.userId !== me.id)
@@ -346,24 +358,27 @@ user.post('/documents/:docId/reject', async (req, res, next) => {
             return res.status(400).json({ error: 'Decision already made' });
         }
 
-        // Update participant decision
-        await prisma.documentParticipant.update({
-            where: { id: participant.id },
-            data: {
-                decision: reason || 'REJECTED',
-                decidedAt: new Date()
-            }
-        });
+        const [_, updated] = await prisma.$transaction([
+            // Update participant decision
+            prisma.documentParticipant.update({
+                where: { id: participant.id },
+                data: {
+                    decision: reason || 'REJECTED',
+                    decidedAt: new Date()
+                }
+            }),
 
-        // Update document status to REJECTED
-        const updated = await prisma.document.update({
-            where: { id: docId },
-            data: { status: 'REJECTED' },
-            include: {
-                owner: { select: { email: true } },
-                participants: { include: { user: { select: { email: true, fullName: true } } } }
-            }
-        });
+            // Update document status to REJECTED
+            prisma.document.update({
+                where: { id: docId },
+                data: { status: 'REJECTED' },
+                include: {
+                    owner: { select: { email: true } },
+                    participants: { include: { user: { select: { email: true, fullName: true } } } }
+                }
+            })
+        ]);
+        
 
         // Notify owner and all participants
         const recipients = [
@@ -373,11 +388,12 @@ user.post('/documents/:docId/reject', async (req, res, next) => {
 
         if (recipients.length) {
             const rejecter = updated.participants.find(p => p.userId === id);
+            const sanitizedReason = reason ? escapeHtml(reason) : '';
             await sendEmail(
                 recipients.join(','),
                 `Document rejected: ${updated.title}`,
                 `<p>Document <b>${updated.title}</b> has been rejected by ${rejecter?.user.fullName || 'a participant'}.</p>
-         ${reason ? `<p>Reason: ${reason}</p>` : ''}`
+         ${sanitizedReason ? `<p>Reason: ${sanitizedReason}</p>` : ''}`
             );
         }
 

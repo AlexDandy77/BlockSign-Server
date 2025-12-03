@@ -1,9 +1,13 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const region = process.env.AWS_REGION!;
-export const s3Bucket = process.env.S3_BUCKET!;
+function required(name: string, value: string | undefined): string {
+    if (!value) throw new Error(`Missing env var: ${name}`);
+    return value;
+}
 
+const region = required('AWS_REGION', process.env.AWS_REGION);
+export const s3Bucket = required('S3_BUCKET', process.env.S3_BUCKET);
 export const s3 = new S3Client({ region });
 
 export async function putPdfObject(key: string, body: Buffer, sha256Hex: string) {
