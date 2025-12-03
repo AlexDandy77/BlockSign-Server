@@ -1,185 +1,185 @@
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
 }
 
 // Registration process
 enum RegistrationStatus {
-  PENDING
-  APPROVED
-  DECLINED
-  COMPLETED
+    PENDING
+    APPROVED
+    DECLINED
+    COMPLETED
 }
 
 model RegistrationRequest {
-  id        String             @id @default(uuid())
-  email     String             @unique
-  username  String             @unique
-  fullName  String
-  phone     String?            @db.VarChar(32)
-  idnp      String?            @db.VarChar(32)
-  createdAt DateTime           @default(now())
-  status    RegistrationStatus @default(PENDING)
-  decidedAt DateTime?
-  decidedBy String? 
-  note      String?
+    id        String             @id @default(uuid())
+    email     String             @unique
+    username  String             @unique
+    fullName  String
+    phone     String?            @db.VarChar(32)
+    idnp      String?            @db.VarChar(32)
+    createdAt DateTime           @default(now())
+    status    RegistrationStatus @default(PENDING)
+    decidedAt DateTime?
+    decidedBy String?
+    note      String?
 
-  finalizeTokens EmailToken[]
+    finalizeTokens EmailToken[]
 }
 
 // Email
 enum OtpPurpose {
-  REGISTER_EMAIL
+    REGISTER_EMAIL
 }
 
 model EmailOtp {
-  id          String     @id @default(uuid())
-  email       String
-  purpose     OtpPurpose
-  codeHash    String     // HMAC-SHA256 of the 6-digit code
-  attemptCount Int       @default(0)
-  expiresAt   DateTime
-  usedAt      DateTime?
-  createdAt   DateTime   @default(now())
+    id           String     @id @default(uuid())
+    email        String
+    purpose      OtpPurpose
+    codeHash     String // HMAC-SHA256 of the 6-digit code
+    attemptCount Int        @default(0)
+    expiresAt    DateTime
+    usedAt       DateTime?
+    createdAt    DateTime   @default(now())
 
-  @@index([email, purpose])
+    @@index([email, purpose])
 }
 
 model EmailToken {
-  id           String    @id @default(uuid())
-  regRequestId String
-  token        String    @unique // random 32+ bytes base64url
-  expiresAt    DateTime
-  usedAt       DateTime?
-  createdAt    DateTime  @default(now())
+    id           String    @id @default(uuid())
+    regRequestId String
+    token        String    @unique // random 32+ bytes base64url
+    expiresAt    DateTime
+    usedAt       DateTime?
+    createdAt    DateTime  @default(now())
 
-  regRequest RegistrationRequest @relation(fields: [regRequestId], references: [id], onDelete: Cascade)
+    regRequest RegistrationRequest @relation(fields: [regRequestId], references: [id], onDelete: Cascade)
 
-  @@index([regRequestId])
-  @@index([expiresAt])
+    @@index([regRequestId])
+    @@index([expiresAt])
 }
 
 // Login challenge
 model LoginChallenge {
-  id        String    @id @default(uuid())
-  email     String
-  challenge String // base64url random
-  createdAt DateTime  @default(now())
-  expiresAt DateTime
-  usedAt    DateTime?
+    id        String    @id @default(uuid())
+    email     String
+    challenge String // base64url random
+    createdAt DateTime  @default(now())
+    expiresAt DateTime
+    usedAt    DateTime?
 
-  @@index([email])
-  @@index([expiresAt])
+    @@index([email])
+    @@index([expiresAt])
 }
 
 // User
 enum UserStatus {
-  ACTIVE
-  SUSPENDED
+    ACTIVE
+    SUSPENDED
 }
 
 enum UserRole {
-  USER
-  ADMIN
+    USER
+    ADMIN
 }
 
 model User {
-  id               String     @id @default(uuid())
-  email            String     @unique
-  fullName         String
-  username         String     @unique
-  publicKeyEd25519 String?
-  keyCreatedAt     DateTime?
-  phone            String?    @db.VarChar(32)
-  role             UserRole   @default(USER)
-  status           UserStatus @default(ACTIVE)
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+    id               String     @id @default(uuid())
+    email            String     @unique
+    fullName         String
+    username         String     @unique
+    publicKeyEd25519 String?
+    keyCreatedAt     DateTime?
+    phone            String?    @db.VarChar(32)
+    role             UserRole   @default(USER)
+    status           UserStatus @default(ACTIVE)
+    createdAt        DateTime   @default(now())
+    updatedAt        DateTime   @updatedAt
 
-  refreshTokens   RefreshToken[]        @relation("UserRefreshTokens")
-  documentsOwned  Document[]            @relation("UserDocumentsOwned")
-  docParticipants DocumentParticipant[] @relation("UserDocumentParticipants")
-  signatures      Signature[]           @relation("UserSignatures")
+    refreshTokens   RefreshToken[]        @relation("UserRefreshTokens")
+    documentsOwned  Document[]            @relation("UserDocumentsOwned")
+    docParticipants DocumentParticipant[] @relation("UserDocumentParticipants")
+    signatures      Signature[]           @relation("UserSignatures")
 
-  createdFromRequestId String?
+    createdFromRequestId String?
 }
 
 // Refresh token for session management
 model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
-  token     String   @unique
-  createdAt DateTime @default(now())
-  expiresAt DateTime
+    id        String   @id @default(uuid())
+    userId    String
+    token     String   @unique
+    createdAt DateTime @default(now())
+    expiresAt DateTime
 
-  user User @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
+    user User @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([expiresAt])
+    @@index([userId])
+    @@index([expiresAt])
 }
 
 // Documents
 enum DocStatus {
-  PENDING
-  SIGNED
-  REJECTED
+    PENDING
+    SIGNED
+    REJECTED
 }
 
 model Document {
-  id         String    @id @default(uuid())
-  ownerId    String
-  title      String
-  mimeType   String
-  sizeBytes  Int
-  sha256Hex  String    @db.VarChar(64)
-  status     DocStatus
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  canonicalPayload String
-  storageKey String @unique
+    id               String    @id @default(uuid())
+    ownerId          String
+    title            String
+    mimeType         String
+    sizeBytes        Int
+    sha256Hex        String    @db.VarChar(64)
+    status           DocStatus
+    createdAt        DateTime  @default(now())
+    updatedAt        DateTime  @updatedAt
+    canonicalPayload String
+    storageKey       String    @unique
 
-  owner        User                  @relation("UserDocumentsOwned", fields: [ownerId], references: [id])
-  participants DocumentParticipant[]
-  signatures   Signature[]
+    owner        User                  @relation("UserDocumentsOwned", fields: [ownerId], references: [id])
+    participants DocumentParticipant[]
+    signatures   Signature[]
 
-  @@index([sha256Hex])
-  @@index([ownerId])
-  @@index([status, createdAt])
+    @@index([sha256Hex])
+    @@index([ownerId])
+    @@index([status, createdAt])
 }
 
 model DocumentParticipant {
-  id         String    @id @default(uuid())
-  documentId String
-  userId     String
-  orderIndex Int
-  required   Boolean   @default(true)
-  joinedAt   DateTime  @default(now())
-  decision   String?
-  decidedAt  DateTime?
+    id         String    @id @default(uuid())
+    documentId String
+    userId     String
+    orderIndex Int
+    required   Boolean   @default(true)
+    joinedAt   DateTime  @default(now())
+    decision   String?
+    decidedAt  DateTime?
 
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user     User     @relation("UserDocumentParticipants", fields: [userId], references: [id], onDelete: Cascade)
+    document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+    user     User     @relation("UserDocumentParticipants", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([documentId, userId])
-  @@index([userId, documentId])
-  @@index([documentId])
+    @@unique([documentId, userId])
+    @@index([userId, documentId])
+    @@index([documentId])
 }
 
 // Each signature is a detached Ed25519 signature over the canonicalPayload of the Document
 model Signature {
-  id           String   @id @default(uuid())
-  documentId   String
-  userId       String
-  alg          String
-  signatureB64 String
-  signedAt     DateTime @default(now())
+    id           String   @id @default(uuid())
+    documentId   String
+    userId       String
+    alg          String
+    signatureB64 String
+    signedAt     DateTime @default(now())
 
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  user     User     @relation("UserSignatures", fields: [userId], references: [id], onDelete: Cascade)
+    document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+    user     User     @relation("UserSignatures", fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([documentId, userId])
+    @@unique([documentId, userId])
 }

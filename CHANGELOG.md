@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [1.5.2] - 2025-12-3
+### Added
+- **Cleanup** of expired LoginChallenges and RefreshTokens:
+  - New file `jobs/cleanup.ts` now starts a cron job that deletes expired tokens and challenges every hour.
+### Changed
+- **Indentation** of every file changed to 4:
+  - More readable.
+
+---
 ## [1.5.1] - 2025-11-18
 ### Added
 - **Status** at document participant:

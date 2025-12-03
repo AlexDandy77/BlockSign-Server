@@ -17,7 +17,7 @@ const { key: privateKey } = derivePath(PATH, Buffer.from(seed).toString('hex'));
 const publicKey = await ed.getPublicKeyAsync(privateKey);
 
 const privHex = Buffer.from(privateKey).toString('hex');
-const pubHex  = Buffer.from(publicKey).toString('hex');
+const pubHex = Buffer.from(publicKey).toString('hex');
 
 console.log('MNEMONIC:', mnemonic);
 console.log('PUBLIC_KEY_HEX:', pubHex);
