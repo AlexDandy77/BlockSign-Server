@@ -7,9 +7,13 @@ import crypto from 'crypto';
 import { ed } from '../crypto/ed25519.js';
 import { sendEmail } from '../email/mailer.js';
 import { putPdfObject, getPresignedGetUrl } from '../storage/s3.js';
+import { getPolygonAnchor } from '../blockchain/polygon.js';
 
 export const user = Router();
 user.use(requireUser);
+
+// Public router for document verification (no auth required)
+export const publicDocuments = Router();
 
 // Get current user profile info + related documents
 user.get('/me', async (req, res, next) => {
@@ -304,15 +308,55 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
         const required = doc.participants.filter(p => p.required).length;
         const signed = doc.signatures.length + 1;
 
-        if (signed >= required) {
+        if (signed > required) {
             const updated = await prisma.document.update({
                 where: { id: docId },
                 data: { status: 'SIGNED' },
                 include: {
-                    owner: { select: { email: true } },
-                    participants: { include: { user: { select: { email: true } } } }
+                    owner: { select: { email: true, username: true } },
+                    participants: { include: { user: { select: { email: true, username: true } } } }
                 }
             });
+
+            let blockchainInfo: any = null;
+
+            // Anchor to Polygon blockchain
+            try {
+                const polygonAnchor = getPolygonAnchor();
+                const participantUsernames = updated.participants.map(p => p.user.username);
+
+                const anchorResult = await polygonAnchor.anchorDocument({
+                    documentId: updated.id,
+                    sha256Hex: updated.sha256Hex,
+                    title: updated.title,
+                    ownerUsername: updated.owner.username,
+                    participantUsernames,
+                    canonicalPayload: updated.canonicalPayload
+                });
+
+                // Update document with blockchain info
+                await prisma.document.update({
+                    where: { id: docId },
+                    data: {
+                        blockchainTxId: anchorResult.txId,
+                        blockchainNetwork: anchorResult.network,
+                        anchoredAt: new Date(),
+                        explorerUrl: anchorResult.explorerUrl
+                    }
+                });
+
+                blockchainInfo = {
+                    txId: anchorResult.txId,
+                    explorerUrl: anchorResult.explorerUrl,
+                    network: anchorResult.network
+                };
+
+                console.log(`Document ${docId} anchored to Polygon: ${anchorResult.txId}`);
+            } catch (blockchainError) {
+                console.error('Failed to anchor to blockchain:', blockchainError);
+                // Don't fail the signing process if blockchain anchoring fails
+                // Could implement retry logic later
+            }
 
             const recipients = [
                 updated.owner?.email,
@@ -320,14 +364,25 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
             ].filter(Boolean) as string[];
 
             if (recipients.length) {
+                const blockchainInfo_ = blockchainInfo;
+                const emailBody = blockchainInfo_
+                    ? `<p>Your document <b>${updated.title}</b> is fully signed and anchored to the Polygon blockchain.</p>
+                       <p><strong>Blockchain Transaction:</strong> <a href="${blockchainInfo_.explorerUrl}">${blockchainInfo_.txId}</a></p>
+                       <p>You can verify at any time by uploading the PDF version in the app or viewing the transaction on <a href="${blockchainInfo_.explorerUrl}">PolygonScan</a>.</p>`
+                    : `<p>Your document <b>${updated.title}</b> is fully signed.</p>
+                       <p>You can verify at any time by uploading the PDF version in the app.</p>`;
+
                 await sendEmail(
                     recipients.join(','),
                     `All parties signed: ${updated.title}`,
-                    `<p>Your document <b>${updated.title}</b> is fully signed.</p>
-           <p>You can verify at any time by uploading the PDF version in the app.</p>`
+                    emailBody
                 );
             }
-            return res.json({ status: 'SIGNED' });
+
+            return res.json({
+                status: 'SIGNED',
+                blockchain: blockchainInfo
+            });
         }
 
         res.json({ status: 'PENDING' });
@@ -401,9 +456,8 @@ user.post('/documents/:docId/reject', async (req, res, next) => {
     } catch (e) { next(e); }
 });
 
-// Internal verification of the document by uploading a PDF 
-// TODO: make also one for anyone, no auth required
-user.post('/documents/verify',
+// Public verification of documents by uploading a PDF (no authentication required)
+publicDocuments.post('/verify',
     upload.single('file'),
     async (req, res, next) => {
         try {
@@ -449,8 +503,84 @@ user.post('/documents/verify',
                             alg: s.alg,
                             signedAt: s.signedAt
                         })),
+                    // Blockchain info
+                    blockchain: d.blockchainTxId ? {
+                        txId: d.blockchainTxId,
+                        network: d.blockchainNetwork,
+                        anchoredAt: d.anchoredAt,
+                        explorerUrl: d.explorerUrl
+                    } : null
                 }
             });
         } catch (e) { next(e); }
     }
 );
+
+// Get blockchain verification info for a document
+user.get('/documents/:docId/blockchain', async (req, res, next) => {
+    try {
+        const { id: userId } = (req as any).user as { id: string };
+        const { docId } = req.params;
+
+        const doc = await prisma.document.findUnique({
+            where: { id: docId },
+            select: {
+                id: true,
+                ownerId: true,
+                title: true,
+                sha256Hex: true,
+                blockchainTxId: true,
+                blockchainNetwork: true,
+                anchoredAt: true,
+                explorerUrl: true,
+                participants: { select: { userId: true } }
+            }
+        });
+
+        if (!doc) return res.status(404).json({ error: 'Not found' });
+
+        const isOwner = doc.ownerId === userId;
+        const isParticipant = doc.participants.some(p => p.userId === userId);
+        if (!isOwner && !isParticipant) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        if (!doc.blockchainTxId) {
+            return res.json({
+                anchored: false,
+                message: 'Document not yet anchored to blockchain'
+            });
+        }
+
+        // Verify transaction on blockchain
+        try {
+            const polygonAnchor = getPolygonAnchor();
+            const verification = await polygonAnchor.verifyTransaction(doc.blockchainTxId);
+
+            res.json({
+                anchored: true,
+                transaction: {
+                    txId: doc.blockchainTxId,
+                    network: doc.blockchainNetwork,
+                    anchoredAt: doc.anchoredAt,
+                    explorerUrl: doc.explorerUrl,
+                    blockNumber: verification.blockNumber,
+                    confirmed: verification.confirmed,
+                    metadata: verification.metadata
+                }
+            });
+        } catch (verifyError) {
+            // Return what we have in DB even if verification fails
+            res.json({
+                anchored: true,
+                transaction: {
+                    txId: doc.blockchainTxId,
+                    network: doc.blockchainNetwork,
+                    anchoredAt: doc.anchoredAt,
+                    explorerUrl: doc.explorerUrl
+                },
+                verificationError: 'Could not verify transaction on blockchain'
+            });
+        }
+    } catch (e) { next(e); }
+});

@@ -307,6 +307,111 @@ Response:
 ```
 
 ---
+## 🌐 Blockchain API
+
+### User Endpoints
+
+#### Get Blockchain Info for a Document
+```
+GET /api/v1/user/documents/:docId/blockchain
+```
+Returns blockchain transaction info and verification status for a signed document.
+
+#### Verify Document (Public)
+```
+POST /api/v1/documents/verify
+Body: { file: PDF }
+```
+Returns document verification including blockchain anchor information.
+
+### Admin Endpoints
+
+#### Get Wallet Info
+```
+GET /api/v1/admin/blockchain/wallet/info
+```
+Returns company wallet address, balance, and total anchored documents.
+
+#### Get All Anchored Documents
+```
+GET /api/v1/admin/blockchain/documents
+```
+Returns list of all blockchain-anchored documents (latest 100).
+
+#### Get Blockchain Stats
+```
+GET /api/v1/admin/blockchain/stats
+```
+Returns anchoring statistics and success rate.
+
+#### Verify a Transaction
+```
+GET /api/v1/admin/blockchain/verify/:txId
+```
+Verifies a specific transaction on Polygon and retrieves its data.
+
+#### Retry Failed Anchoring
+```
+POST /api/v1/admin/blockchain/documents/:docId/retry-anchor
+```
+Manually retries anchoring for a document that was not anchored initially.
+
+### Response Examples
+
+#### Successful Document Signing (with blockchain)
+```json
+{
+    "status": "SIGNED",
+    "blockchain": {
+        "txId": "0x1234...",
+        "explorerUrl": "https://polygonscan.com/tx/0x1234...",
+        "network": "polygon"
+    }
+}
+```
+
+#### Document Verification
+```json
+{
+    "match": true,
+    "sha256Hex": "abc123...",
+    "document": {
+        "id": "doc-id",
+        "title": "Contract.pdf",
+        "status": "SIGNED",
+        "blockchain": {
+            "txId": "0x1234...",
+            "network": "polygon",
+            "anchoredAt": "2025-12-04T10:30:00Z",
+            "explorerUrl": "https://polygonscan.com/tx/0x1234..."
+        }
+    }
+}
+```
+
+#### Get Blockchain Info
+```json
+{
+    "anchored": true,
+    "transaction": {
+        "txId": "0x1234...",
+        "network": "polygon",
+        "anchoredAt": "2025-12-04T10:30:00Z",
+        "explorerUrl": "https://polygonscan.com/tx/0x1234...",
+        "blockNumber": 59234567,
+        "confirmed": true,
+        "metadata": {
+            "docId": "doc-id",
+            "hash": "abc123...",
+            "title": "Contract.pdf",
+            "participants": ["alice", "bob"],
+            "timestamp": "2025-12-04T10:30:00Z"
+        }
+    }
+}
+```
+
+---
 ## Real Email Mechanism
 Get credentials from your SMTP provider and put them into .env file.
 

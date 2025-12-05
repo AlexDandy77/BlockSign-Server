@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [2.0.0] - 2025-12-05
+### Added
+- **Polygon blockchain anchoring** service with automatic document hashing, on-chain metadata (owner + participant usernames), and transaction verification helpers.
+- **Administrative blockchain suite** exposing wallet balance, anchor stats, document listings, retry anchoring, and transaction verification endpoints.
+- **Public verification** endpoint that returns blockchain transaction data so external users can validate documents without authentication.
+
+### Changed
+- **Document signing flow** now anchors fully signed documents to Polygon, persists transaction identifiers, and logs a prefixed `BlockSign:` metadata payload for better explorer readability.
+- **Blockchain metadata format** updated to include the document owner's username and a human-readable prefix, keeping verification responses backward-compatible.
+
+### Fixed
+- **Signatures** server bug, where not all participants were required to sign the document for it to be deployed in db and blockchain.
+
+
+---
 ## [1.5.2] - 2025-12-03
 ### Added
 - **Cleanup** of expired LoginChallenges and RefreshTokens:
