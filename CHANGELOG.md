@@ -6,7 +6,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 ---
 ## [2.1.0] - 2025-12-10
 ### Added
-- **Deployed** on Amazon Web Services.
+- **Deployed** server on Amazon Web Services EC2 instance.
 - **Connected** domain `blocksign.md` to front and `api.blocksign.md` to back.
 - **Integrated** email service using Amazon SES `info@blocksign.md`.
 
