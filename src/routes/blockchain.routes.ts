@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { requireAdmin } from '../middlewares/requireAdmin.js';
 import { getPolygonAnchor } from '../blockchain/polygon.js';
 import { prisma } from '../prisma.js';
@@ -7,7 +7,7 @@ export const blockchain = Router();
 blockchain.use(requireAdmin);
 
 // Get company wallet info
-blockchain.get('/wallet/info', async (req, res, next) => {
+blockchain.get('/wallet/info', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const polygonAnchor = getPolygonAnchor();
         const address = polygonAnchor.getAddress();
@@ -30,7 +30,7 @@ blockchain.get('/wallet/info', async (req, res, next) => {
 });
 
 // Get all blockchain-anchored documents
-blockchain.get('/documents', async (req, res, next) => {
+blockchain.get('/documents', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const docs = await prisma.document.findMany({
             where: { blockchainTxId: { not: null } },
@@ -56,7 +56,7 @@ blockchain.get('/documents', async (req, res, next) => {
 });
 
 // Get blockchain anchor stats
-blockchain.get('/stats', async (req, res, next) => {
+blockchain.get('/stats', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const totalDocuments = await prisma.document.count();
         const totalSigned = await prisma.document.count({
@@ -81,9 +81,9 @@ blockchain.get('/stats', async (req, res, next) => {
 });
 
 // Verify a specific transaction on blockchain
-blockchain.get('/verify/:txId', async (req, res, next) => {
+blockchain.get('/verify/:txId', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { txId } = req.params;
+        const { txId } = req.params as { txId: string };
         const polygonAnchor = getPolygonAnchor();
 
         const verification = await polygonAnchor.verifyTransaction(txId);
@@ -109,9 +109,9 @@ blockchain.get('/verify/:txId', async (req, res, next) => {
 });
 
 // Retry failed anchoring for a document (if it didn't get anchored)
-blockchain.post('/documents/:docId/retry-anchor', async (req, res, next) => {
+blockchain.post('/documents/:docId/retry-anchor', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { docId } = req.params;
+        const { docId } = req.params as { docId: string };
 
         const doc = await prisma.document.findUnique({
             where: { id: docId },
@@ -129,7 +129,7 @@ blockchain.post('/documents/:docId/retry-anchor', async (req, res, next) => {
             return res.status(400).json({ error: 'Already anchored' });
         }
 
-        const participantUsernames = doc.participants.map(p => p.user.username);
+        const participantUsernames = doc.participants.map((p: any) => p.user.username);
         const ownerUsername = doc.owner.username;
         const polygonAnchor = getPolygonAnchor();
 

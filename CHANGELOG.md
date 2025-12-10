@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [2.1.0] - 2025-12-10
+### Added
+- **Deployed** on Amazon Web Services.
+- **Connected** domain `blocksign.md` to front and `api.blocksign.md` to back.
+- **Integrated** email service using Amazon SES `info@blocksign.md`.
+
+### Changed
+- **Specified** variable types in `blockchain.routes.ts` and `user.routes.ts`.
+
+---
 ## [2.0.0] - 2025-12-05
 ### Added
 - **Polygon blockchain anchoring** service with automatic document hashing, on-chain metadata (owner + participant usernames), and transaction verification helpers.
