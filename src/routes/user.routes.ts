@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../prisma.js';
 import { requireUser } from '../middlewares/requireUser.js';
 import { z } from 'zod';
@@ -18,7 +18,7 @@ user.use(requireUser);
 export const publicDocuments = Router();
 
 // Get current user profile info + related documents
-user.get('/me', async (req, res, next) => {
+user.get('/me', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = (req as any).user as { id: string };
 
@@ -51,12 +51,12 @@ user.get('/me', async (req, res, next) => {
             }
         });
 
-        const result = documents.map(d => {
-            const totalRequired = d.participants.filter(p => p.required).length;
+        const result = documents.map((d: any) => {
+            const totalRequired = d.participants.filter((p: any) => p.required).length;
             const totalSigned = d.signatures.length;
             const myRole =
                 d.ownerId === id ? 'OWNER'
-                    : d.participants.some(p => p.userId === id) ? 'PARTICIPANT'
+                    : d.participants.some((p: any) => p.userId === id) ? 'PARTICIPANT'
                         : 'VIEWER';
 
             return {
@@ -70,10 +70,10 @@ user.get('/me', async (req, res, next) => {
                 myRole,
                 progress: { totalRequired, totalSigned },
                 owner: d.owner,
-                participants: d.participants.map(p => ({
+                participants: d.participants.map((p: any) => ({
                     user: p.user, required: p.required, decision: p.decision, decidedAt: p.decidedAt
                 })),
-                signatures: d.signatures.map(s => ({
+                signatures: d.signatures.map((s: any) => ({
                     user: s.user, alg: s.alg, signedAt: s.signedAt
                 })),
             };
@@ -122,7 +122,7 @@ function escapeHtml(input: string) {
 }
 
 // Create document
-user.post('/documents', upload.single('file'), async (req, res, next) => {
+user.post('/documents', upload.single('file'), async (req: Request, res: Response, next: NextFunction) => {
     try {
         const participantsUsernames =
             Array.isArray(req.body.participantsUsernames)
@@ -168,7 +168,7 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
         const canonical = buildCanonicalPayload({
             sha256Hex: body.sha256Hex,
             title: body.docTitle,
-            participants: users.map(u => (u.username!)),
+            participants: users.map((u: any) => (u.username!)),
         });
 
         const ok = await ed.verifyAsync(
@@ -195,7 +195,7 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
                 createdAt: createdAtIso,
                 participants: {
                     createMany: {
-                        data: users.map((u, i) => ({
+                        data: users.map((u: any, i: any) => ({
                             userId: u.id, orderIndex: i, required: true
                         }))
                     }
@@ -215,8 +215,8 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
 
         // Email participants (except creator) with PDF attached
         const recipients = doc.participants
-            .filter(p => p.userId !== me.id)
-            .map(p => p.user.email)
+            .filter((p: any) => p.userId !== me.id)
+            .map((p: any) => p.user.email)
             .filter(Boolean) as string[];
 
         if (recipients.length) {
@@ -233,10 +233,10 @@ user.post('/documents', upload.single('file'), async (req, res, next) => {
 );
 
 // Returns a 10-minute presigned GET link
-user.get('/documents/:id/url', async (req, res, next) => {
+user.get('/documents/:id/url', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id: userId } = (req as any).user as { id: string };
-        const { id: documentId } = req.params;
+        const { id: documentId } = req.params as { id: string };
 
         const doc = await prisma.document.findUnique({
             where: { id: documentId },
@@ -250,7 +250,7 @@ user.get('/documents/:id/url', async (req, res, next) => {
         if (!doc) return res.status(404).json({ error: 'Not found' });
 
         const isOwner = doc.ownerId === userId;
-        const isParticipant = doc.participants.some(p => p.userId === userId);
+        const isParticipant = doc.participants.some((p: any) => p.userId === userId);
         if (!isOwner && !isParticipant) return res.status(403).json({ error: 'Forbidden' });
 
         if (!doc.storageKey) return res.status(409).json({ error: 'File not available' });
@@ -261,7 +261,7 @@ user.get('/documents/:id/url', async (req, res, next) => {
 });
 
 // Participant signs
-user.post('/documents/:docId/sign', async (req, res, next) => {
+user.post('/documents/:docId/sign', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = (req as any).user as { id: string };
         const { docId } = z.object({ docId: z.string() }).parse(req.params);
@@ -274,10 +274,10 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
         if (!doc) return res.status(404).json({ error: 'Not found' });
         if (doc.status !== 'PENDING') return res.status(400).json({ error: 'Not pending' });
 
-        const isParticipant = doc.participants.some(p => p.userId === id);
+        const isParticipant = doc.participants.some((p: any) => p.userId === id);
         if (!isParticipant) return res.status(403).json({ error: 'Not a participant' });
 
-        const already = doc.signatures.some(s => s.userId === id);
+        const already = doc.signatures.some((s: any) => s.userId === id);
         if (already) return res.status(400).json({ error: 'Already signed' });
 
         const me = await prisma.user.findUnique({ where: { id: id } });
@@ -290,7 +290,7 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
         );
         if (!ok) return res.status(400).json({ error: 'Invalid signature' });
 
-        const participant = doc.participants.find(p => p.userId === id);
+        const participant = doc.participants.find((p: any) => p.userId === id);
         if (!participant) return res.status(403).json({ error: 'Participant record not found' });
 
         // Update participant decision
@@ -306,7 +306,7 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
             data: { documentId: docId, userId: id, alg: 'Ed25519', signatureB64 }
         });
 
-        const required = doc.participants.filter(p => p.required).length;
+        const required = doc.participants.filter((p: any) => p.required).length;
         const signed = doc.signatures.length + 1;
 
         if (signed > required) {
@@ -324,7 +324,7 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
             // Anchor to Polygon blockchain
             try {
                 const polygonAnchor = getPolygonAnchor();
-                const participantUsernames = updated.participants.map(p => p.user.username);
+                const participantUsernames = updated.participants.map((p: any) => p.user.username);
 
                 const anchorResult = await polygonAnchor.anchorDocument({
                     documentId: updated.id,
@@ -361,7 +361,7 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
 
             const recipients = [
                 updated.owner?.email,
-                ...updated.participants.map(p => p.user.email)
+                ...updated.participants.map((p: any) => p.user.email)
             ].filter(Boolean) as string[];
 
             if (recipients.length) {
@@ -390,7 +390,7 @@ user.post('/documents/:docId/sign', async (req, res, next) => {
 });
 
 // Participant rejects document
-user.post('/documents/:docId/reject', async (req, res, next) => {
+user.post('/documents/:docId/reject', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = (req as any).user as { id: string };
         const { docId } = z.object({ docId: z.string() }).parse(req.params);
@@ -406,7 +406,7 @@ user.post('/documents/:docId/reject', async (req, res, next) => {
         if (!doc) return res.status(404).json({ error: 'Not found' });
         if (doc.status !== 'PENDING') return res.status(400).json({ error: 'Document is not pending' });
 
-        const participant = doc.participants.find(p => p.userId === id);
+        const participant = doc.participants.find((p: any) => p.userId === id);
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
 
         if (participant.decision) {
@@ -438,11 +438,12 @@ user.post('/documents/:docId/reject', async (req, res, next) => {
         // Notify owner and all participants
         const recipients = [
             updated.owner?.email,
-            ...updated.participants.map(p => p.user.email)
+            ...updated.participants.map((p: any) => p.user.email)
         ].filter(Boolean) as string[];
 
         if (recipients.length) {
-            const rejecter = updated.participants.find(p => p.userId === id);
+            const rejecter = updated.participants.find((p: any) => p.userId === id);
+            const sanitizedReason = reason ? escapeHtml(reason) : '';
             await sendEmail(
                 recipients.join(','),
                 `Document rejected: ${updated.title}`,
@@ -462,7 +463,7 @@ user.post('/documents/:docId/reject', async (req, res, next) => {
 // Public verification of documents by uploading a PDF (no authentication required)
 publicDocuments.post('/verify',
     upload.single('file'),
-    async (req, res, next) => {
+    async (req: Request, res: Response, next: NextFunction) => {
         try {
             if (!req.file) return res.status(400).json({ error: 'PDF file is required' });
             const fileHash = sha256Hex(req.file.buffer);
@@ -498,10 +499,10 @@ publicDocuments.post('/verify',
                     createdAt: d.createdAt,
                     status: d.status,
                     owner: d.owner,
-                    participants: d.participants.map(p => ({ user: p.user, required: p.required })),
+                    participants: d.participants.map((p: any) => ({ user: p.user, required: p.required })),
                     signatures: d.signatures
-                        .sort((a, b) => a.signedAt.getTime() - b.signedAt.getTime())
-                        .map(s => ({
+                        .sort((a: any, b: any) => a.signedAt.getTime() - b.signedAt.getTime())
+                        .map((s: any) => ({
                             user: s.user,
                             alg: s.alg,
                             signedAt: s.signedAt
@@ -520,10 +521,10 @@ publicDocuments.post('/verify',
 );
 
 // Get blockchain verification info for a document
-user.get('/documents/:docId/blockchain', async (req, res, next) => {
+user.get('/documents/:docId/blockchain', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id: userId } = (req as any).user as { id: string };
-        const { docId } = req.params;
+        const { docId } = req.params as { docId: string };
 
         const doc = await prisma.document.findUnique({
             where: { id: docId },
@@ -543,7 +544,7 @@ user.get('/documents/:docId/blockchain', async (req, res, next) => {
         if (!doc) return res.status(404).json({ error: 'Not found' });
 
         const isOwner = doc.ownerId === userId;
-        const isParticipant = doc.participants.some(p => p.userId === userId);
+        const isParticipant = doc.participants.some((p: any) => p.userId === userId);
         if (!isOwner && !isParticipant) {
             return res.status(403).json({ error: 'Forbidden' });
         }
