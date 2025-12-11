@@ -72,6 +72,8 @@ admin.post('/registrations/:id/decline', async (req, res, next) => {
             data: { status: 'DECLINED', decidedAt: new Date() }
         });
 
+        await sendEmail(rr.email, 'Registration Request Declined', `Your registration request has been declined by the admin.`);
+
         res.json({ ok: true });
     } catch (e) { next(e); }
 });
