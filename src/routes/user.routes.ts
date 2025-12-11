@@ -5,9 +5,11 @@ import { z } from 'zod';
 import multer from 'multer';
 import crypto from 'crypto';
 import { ed } from '../crypto/ed25519.js';
-import { sendEmail } from '../email/mailer.js';
+import { sendEmail, documentReviewSignTemplate, documentSignedTemplate, documentRejectedTemplate } from '../email/mailer.js';
 import { putPdfObject, getPresignedGetUrl } from '../storage/s3.js';
 import { getPolygonAnchor } from '../blockchain/polygon.js';
+
+const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
 export const user = Router();
 user.use(requireUser);
@@ -221,8 +223,7 @@ user.post('/documents', upload.single('file'), async (req: Request, res: Respons
             await sendEmail(
                 recipients.join(','),
                 `Document to review & sign: ${doc.title}`,
-                `<p>You have a new document to review and sign: <b>${doc.title}</b>.</p>
-           <p>Verify its SHA-256 hash matches the payload shown in the app before signing.</p>`
+                documentReviewSignTemplate(doc.title, APP_URL)
             );
         }
 
@@ -364,18 +365,17 @@ user.post('/documents/:docId/sign', async (req: Request, res: Response, next: Ne
             ].filter(Boolean) as string[];
 
             if (recipients.length) {
-                const blockchainInfo_ = blockchainInfo;
-                const emailBody = blockchainInfo_
-                    ? `<p>Your document <b>${updated.title}</b> is fully signed and anchored to the Polygon blockchain.</p>
-                       <p><strong>Blockchain Transaction:</strong> <a href="${blockchainInfo_.explorerUrl}">${blockchainInfo_.txId}</a></p>
-                       <p>You can verify at any time by uploading the PDF version in the app or viewing the transaction on <a href="${blockchainInfo_.explorerUrl}">PolygonScan</a>.</p>`
-                    : `<p>Your document <b>${updated.title}</b> is fully signed.</p>
-                       <p>You can verify at any time by uploading the PDF version in the app.</p>`;
-
                 await sendEmail(
                     recipients.join(','),
                     `All parties signed: ${updated.title}`,
-                    emailBody
+                    documentSignedTemplate(
+                        updated.title,
+                        APP_URL,
+                        blockchainInfo ? {
+                            txId: blockchainInfo.txId,
+                            explorerUrl: blockchainInfo.explorerUrl
+                        } : undefined
+                    )
                 );
             }
 
@@ -447,8 +447,12 @@ user.post('/documents/:docId/reject', async (req: Request, res: Response, next: 
             await sendEmail(
                 recipients.join(','),
                 `Document rejected: ${updated.title}`,
-                `<p>Document <b>${updated.title}</b> has been rejected by ${rejecter?.user.fullName || 'a participant'}.</p>
-         ${sanitizedReason ? `<p>Reason: ${sanitizedReason}</p>` : ''}`
+                documentRejectedTemplate(
+                    updated.title,
+                    APP_URL,
+                    rejecter?.user.fullName || undefined,
+                    reason || undefined
+                )
             );
         }
 
