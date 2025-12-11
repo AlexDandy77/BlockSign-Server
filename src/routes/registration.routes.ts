@@ -124,6 +124,17 @@ registration.post('/complete', async (req, res, next) => {
             prisma.registrationRequest.delete({ where: { id: rr.id } })
         ]);
 
+        // Notify admin about the new registration
+        const adminEmail = 'blocksigncloud@gmail.com';
+        const subject = 'New User Registration Request';
+        const body = `A new user has registered. There are currently ${await getPendingRequestsCount()} pending requests awaiting admin decision.`;
+        await sendEmail(adminEmail, subject, body);
+
         res.status(201).json({ user: { id: user.id, email: user.email, fullName: user.fullName } });
     } catch (e) { next(e); }
 });
+
+// Function to get the count of pending requests
+async function getPendingRequestsCount() {
+    return await prisma.registrationRequest.count({ where: { status: 'PENDING' } });
+}
