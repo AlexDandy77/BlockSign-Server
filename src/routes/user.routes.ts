@@ -6,7 +6,7 @@ import multer from 'multer';
 import crypto from 'crypto';
 import { ed } from '../crypto/ed25519.js';
 import { sendEmail, documentReviewSignTemplate, documentSignedTemplate, documentRejectedTemplate } from '../email/mailer.js';
-import { putPdfObject, getPresignedGetUrl } from '../storage/s3.js';
+import { putPdfObject, getPresignedGetUrl, streamObject } from '../storage/s3.js';
 import { getPolygonAnchor } from '../blockchain/polygon.js';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
@@ -232,7 +232,49 @@ user.post('/documents', upload.single('file'), async (req: Request, res: Respons
 }
 );
 
-// Returns a 10-minute presigned GET link
+// View document in browser (opens PDF in new tab)
+user.get('/documents/:id/view', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id: userId } = (req as any).user as { id: string };
+        const { id: documentId } = req.params as { id: string };
+
+        const doc = await prisma.document.findUnique({
+            where: { id: documentId },
+            select: {
+                title: true,
+                ownerId: true,
+                storageKey: true,
+                participants: { select: { userId: true } }
+            }
+        });
+        if (!doc) return res.status(404).json({ error: 'Not found' });
+
+        const isOwner = doc.ownerId === userId;
+        const isParticipant = doc.participants.some((p: any) => p.userId === userId);
+        if (!isOwner && !isParticipant) return res.status(403).json({ error: 'Forbidden' });
+
+        if (!doc.storageKey) return res.status(409).json({ error: 'File not available' });
+
+        const s3Object = await streamObject(doc.storageKey);
+        
+        const filename = doc.title ? `${doc.title}.pdf` : 'document.pdf';
+        res.setHeader('Content-Type', 'application/pdf');
+        if (s3Object.ContentLength) {
+            res.setHeader('Content-Length', s3Object.ContentLength.toString());
+        }
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`); // inline = view
+        res.setHeader('Cache-Control', 'private, max-age=600');
+
+        const body = s3Object.Body as any;
+        if (body && typeof body.pipe === 'function') {
+            body.pipe(res).on('error', next);
+        } else {
+            return res.status(500).json({ error: 'Failed to stream file' });
+        }
+    } catch (e) { next(e); }
+});
+
+// Returns a 10-minute presigned GET link (legacy)
 user.get('/documents/:id/url', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id: userId } = (req as any).user as { id: string };

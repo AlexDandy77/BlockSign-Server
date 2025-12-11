@@ -32,3 +32,8 @@ export async function deleteObject(key: string) {
     const cmd = new DeleteObjectCommand({ Bucket: s3Bucket, Key: key });
     return s3.send(cmd);
 }
+
+export async function streamObject(key: string) {
+    const cmd = new GetObjectCommand({ Bucket: s3Bucket, Key: key });
+    return s3.send(cmd);
+}
