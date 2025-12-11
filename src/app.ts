@@ -20,7 +20,27 @@ const logger = pino({ transport: { target: 'pino-pretty' } });
 const pinoHttp = (pinoHttpDefault as unknown as (opts?: any) => any);
 
 app.use(pinoHttp({ logger }));
-app.use(helmet());
+app.use(helmet({
+	contentSecurityPolicy: {
+		useDefaults: true,
+		directives: {
+			// Allow API and S3 pre-signed URLs
+			connectSrc: [
+				"'self'",
+				env.CORS_ORIGIN === '*' ? '*' : env.CORS_ORIGIN,
+				`https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`,
+			].filter(Boolean),
+			imgSrc: [
+				"'self'",
+				'data:',
+				`https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com`,
+			].filter(Boolean),
+			// Allow inline styles for now; adjust if you tighten CSP later
+			styleSrc: ["'self'", "'unsafe-inline'"],
+			scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+		},
+	},
+}));
 app.use(cors({ origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
