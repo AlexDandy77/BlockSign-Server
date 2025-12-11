@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { z } from 'zod';
 import * as ed from '@noble/ed25519';
-import { sendEmail, otpTemplate } from '../email/mailer.js';
+import { sendEmail, otpTemplate, adminNotificationTemplate } from '../email/mailer.js';
 import { createEmailOtp, verifyEmailOtp } from '../email/otp.js';
 
 export const registration = Router();
@@ -68,9 +68,8 @@ registration.post('/request', async (req, res, next) => {
 
         // Notify admin about the new registration
         const adminEmail = 'blocksigncloud@gmail.com';
-        const subject = 'New User Registration Request';
-        const body = `A new user has registered. There are currently ${await getPendingRequestsCount()} pending requests awaiting admin decision.`;
-        await sendEmail(adminEmail, subject, body);
+        const pendingCount = await getPendingRequestsCount();
+        await sendEmail(adminEmail, 'New User Registration Request', adminNotificationTemplate(pendingCount));
 
         res.status(201).json({ requestId: rr.id });
     } catch (e) { next(e); }

@@ -3,7 +3,7 @@ import { prisma } from '../prisma.js';
 import { requireAdmin } from '../middlewares/requireAdmin.js';
 import crypto from 'crypto';
 import { addMinutes } from 'date-fns';
-import { sendEmail, finalizeTemplate } from '../email/mailer.js';
+import { sendEmail, finalizeTemplate, registrationDeclinedTemplate } from '../email/mailer.js';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 export const admin = Router();
@@ -72,7 +72,7 @@ admin.post('/registrations/:id/decline', async (req, res, next) => {
             data: { status: 'DECLINED', decidedAt: new Date() }
         });
 
-        await sendEmail(rr.email, 'Registration Request Declined', `Your registration request has been declined by the admin.`);
+        await sendEmail(rr.email, 'Registration Request Declined', registrationDeclinedTemplate());
 
         res.json({ ok: true });
     } catch (e) { next(e); }
