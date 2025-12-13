@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { requireAdmin } from '../middlewares/requireAdmin.js';
 import crypto from 'crypto';
-import { addMinutes } from 'date-fns';
 import { sendEmail, finalizeTemplate, registrationDeclinedTemplate } from '../email/mailer.js';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
@@ -47,11 +46,10 @@ admin.post('/registrations/:id/approve', async (req, res, next) => {
         if (!rr || rr.status !== 'PENDING') return res.status(404).json({ error: 'Not found or not pending' });
 
         const token = crypto.randomBytes(32).toString('base64url');
-        const expiresAt = addMinutes(new Date(), 30);
 
         await prisma.$transaction([
             prisma.registrationRequest.update({ where: { id }, data: { status: 'APPROVED', decidedAt: new Date() } }),
-            prisma.emailToken.create({ data: { regRequestId: id, token, expiresAt } })
+            prisma.emailToken.create({ data: { regRequestId: id, token } })
         ]);
 
         await sendEmail(rr.email, 'Finalize your registration', finalizeTemplate(rr.email, token, APP_URL));
@@ -67,9 +65,8 @@ admin.post('/registrations/:id/decline', async (req, res, next) => {
         const rr = await prisma.registrationRequest.findUnique({ where: { id } });
         if (!rr || rr.status !== 'PENDING') return res.status(404).json({ error: 'Not found or not pending' });
 
-        await prisma.registrationRequest.update({
-            where: { id },
-            data: { status: 'DECLINED', decidedAt: new Date() }
+        await prisma.registrationRequest.delete({
+            where: { id: rr.id }
         });
 
         await sendEmail(rr.email, 'Registration Request Declined', registrationDeclinedTemplate());

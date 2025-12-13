@@ -53,14 +53,12 @@ model EmailToken {
     id           String    @id @default(uuid())
     regRequestId String
     token        String    @unique // random 32+ bytes base64url
-    expiresAt    DateTime
     usedAt       DateTime?
     createdAt    DateTime  @default(now())
 
     regRequest RegistrationRequest @relation(fields: [regRequestId], references: [id], onDelete: Cascade)
 
     @@index([regRequestId])
-    @@index([expiresAt])
 }
 
 // Login challenge
