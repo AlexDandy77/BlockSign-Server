@@ -8,6 +8,23 @@ import { ed } from '../crypto/ed25519.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/tokens.js';
 
 export const auth = Router();
+// Helper to extract refresh token from request
+function getRefreshFromReq(req: any): string | null {
+    // Cookie first
+    const cookieHeader = (req.headers?.cookie ?? '') as string;
+    const cookieRefreshToken = cookieHeader.match(/(?:^|;\s*)refresh_token=([^;]+)/);
+    if (cookieRefreshToken && cookieRefreshToken[1]) {
+        try { return decodeURIComponent(cookieRefreshToken[1]); } catch { return cookieRefreshToken[1]; }
+    }
+    // Authorization: Bearer <token>
+    const authHeader = (req.headers?.authorization || '') as string;
+    if (authHeader.toLowerCase().startsWith('Bearer ')) {
+        return authHeader.slice(7).trim();
+    }
+    // Body
+    if (req.body?.refreshToken) return req.body.refreshToken as string;
+    return null;
+}
 
 // TODO: integrate username in auth (user enters username or email)
 // Challenge routes
@@ -68,13 +85,7 @@ auth.post('/complete', async (req, res, next) => {
 
 auth.post('/refresh', async (req, res) => {
     try {
-        let refreshToken = null;
-
-        const cookieHeader = req.headers.cookie;
-        const cookieRefreshToken = cookieHeader?.match(/refresh_token=[^;]+/);
-        if (cookieRefreshToken) {
-            refreshToken = cookieRefreshToken[0].split('=')[1];
-        }
+        const refreshToken = getRefreshFromReq(req);
 
         if (!refreshToken) {
             return res.status(401).json({ error: 'Missing refresh token' });
@@ -118,5 +129,19 @@ auth.post('/refresh', async (req, res) => {
     } catch (err) {
         console.error(err);
         return res.status(500).json({ error: 'Failed to refresh token' });
+    }
+});
+
+// Logout: delete the presented refresh token
+auth.post('/logout', async (req, res) => {
+    try {
+        const token = getRefreshFromReq(req);
+        if (token) {
+            await prisma.refreshToken.deleteMany({ where: { token } });
+        }
+        return res.json({ ok: true });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Failed to logout' });
     }
 });

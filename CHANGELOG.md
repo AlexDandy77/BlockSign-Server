@@ -7,9 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 ## [2.2.0] - 2025-12-16
 ### Added
 - **Verification** if a document's hash already exists in the database, refuse the creation and return 409. This is done to exclude duplicate files from the db.
+- **Updated** to Prisma v7.1.0.
 
 ### Changed
 - **Rejecting** the document deletes it from the database and AWS S3, instead of marking it `REJECTED`. This is made for retrial of the uploading the file until it will be satisfying all parties.
+- **RefreshToken** login refined: allows multiple sessions, deletes old ones on log out.
 
 ---
 ## [2.1.0] - 2025-12-10
