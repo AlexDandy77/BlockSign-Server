@@ -69,7 +69,12 @@ auth.post('/complete', async (req, res, next) => {
         const ok = await ed.verifyAsync(sig, msg, pub);
         if (!ok) return res.status(401).json({ error: 'Signature verification failed' });
 
-        await prisma.loginChallenge.deleteMany({ where: { id: lc.id } });
+        // await prisma.loginChallenge.deleteMany({ where: { id: lc.id } });
+
+        // START testing
+        const deletedChallenges = await prisma.loginChallenge.deleteMany({ where: { id: lc.id } });
+        console.log('DELETED CHALLENGES:', deletedChallenges);
+        // END test
 
         const payload = { sub: user.id, role: user.role as 'USER' | 'ADMIN' };
         const accessToken = signAccessToken(payload);
@@ -136,8 +141,10 @@ auth.post('/refresh', async (req, res) => {
 auth.post('/logout', async (req, res) => {
     try {
         const token = getRefreshFromReq(req);
+        console.log('LOGOUT TOKEN:', token);
         if (token) {
-            await prisma.refreshToken.deleteMany({ where: { token } });
+            const deletedTokens = await prisma.refreshToken.deleteMany({ where: { token } });
+            console.log('DELETED TOKENS:', deletedTokens);
         }
         return res.json({ ok: true });
     } catch (err) {
