@@ -3,7 +3,7 @@
         "module": "ESNext",
         "moduleResolution": "Node",
         "target": "ES2023",
-        "rootDir": "src",
+        "rootDir": ".",
         "outDir": "dist",
         "sourceMap": true,
         "declaration": true,
@@ -24,6 +24,7 @@
         ]
     },
     "include": [
-        "src"
+        "src",
+        "prisma/generated"
     ]
 }

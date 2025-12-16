@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { PrismaClient, UserRole, UserStatus } from './generated/index.js';
+import { PrismaClient, UserRole, UserStatus } from './generated/client.js';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
