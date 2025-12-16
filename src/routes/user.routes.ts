@@ -6,7 +6,7 @@ import multer from 'multer';
 import crypto from 'crypto';
 import { ed } from '../crypto/ed25519.js';
 import { sendEmail, documentReviewSignTemplate, documentSignedTemplate, documentRejectedTemplate } from '../email/mailer.js';
-import { putPdfObject, getPresignedGetUrl, streamObject } from '../storage/s3.js';
+import { putPdfObject, getPresignedGetUrl, streamObject, deleteObject } from '../storage/s3.js';
 import { getPolygonAnchor } from '../blockchain/polygon.js';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
@@ -150,6 +150,12 @@ user.post('/documents', upload.single('file'), async (req: Request, res: Respons
         const fileHash = sha256Hex(req.file.buffer);
         if (fileHash !== body.sha256Hex.toLowerCase()) {
             return res.status(400).json({ error: 'File hash mismatch' });
+        }
+
+        // Reject if a document with the same hash already exists
+        const existing = await prisma.document.findFirst({ where: { sha256Hex: body.sha256Hex.toLowerCase() } });
+        if (existing) {
+            return res.status(409).json({ error: 'A document with this hash already exists', documentId: existing.id });
         }
 
         const users = await prisma.user.findMany({
@@ -431,7 +437,7 @@ user.post('/documents/:docId/sign', async (req: Request, res: Response, next: Ne
     } catch (e) { next(e); }
 });
 
-// Participant rejects document
+// Participant rejects document (delete from DB and S3)
 user.post('/documents/:docId/reject', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = (req as any).user as { id: string };
@@ -441,7 +447,7 @@ user.post('/documents/:docId/reject', async (req: Request, res: Response, next: 
         const doc = await prisma.document.findUnique({
             where: { id: docId },
             include: {
-                participants: true,
+                participants: { include: { user: { select: { email: true, fullName: true } } } },
                 owner: { select: { email: true, fullName: true } },
             }
         });
@@ -451,46 +457,36 @@ user.post('/documents/:docId/reject', async (req: Request, res: Response, next: 
         const participant = doc.participants.find((p: any) => p.userId === id);
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
 
-        if (participant.decision) {
-            return res.status(400).json({ error: 'Decision already made' });
+        // Delete document (cascades participants/signatures) and capture data for notifications
+        const deleted = await prisma.document.delete({
+            where: { id: docId },
+            include: {
+                owner: { select: { email: true, fullName: true } },
+                participants: { include: { user: { select: { email: true, fullName: true } } } }
+            }
+        });
+
+        // Best-effort delete from S3
+        if (deleted.storageKey) {
+            deleteObject(deleted.storageKey).catch((err) => {
+                console.error('Failed to delete S3 object for rejected document', err);
+            });
         }
-
-        const [_, updated] = await prisma.$transaction([
-            // Update participant decision
-            prisma.documentParticipant.update({
-                where: { id: participant.id },
-                data: {
-                    decision: reason || 'REJECTED',
-                    decidedAt: new Date()
-                }
-            }),
-
-            // Update document status to REJECTED
-            prisma.document.update({
-                where: { id: docId },
-                data: { status: 'REJECTED' },
-                include: {
-                    owner: { select: { email: true } },
-                    participants: { include: { user: { select: { email: true, fullName: true } } } }
-                }
-            })
-        ]);
-        
 
         // Notify owner and all participants
         const recipients = [
-            updated.owner?.email,
-            ...updated.participants.map((p: any) => p.user.email)
+            deleted.owner?.email,
+            ...deleted.participants.map((p: any) => p.user.email)
         ].filter(Boolean) as string[];
 
         if (recipients.length) {
-            const rejecter = updated.participants.find((p: any) => p.userId === id);
+            const rejecter = deleted.participants.find((p: any) => p.userId === id);
             const sanitizedReason = reason ? escapeHtml(reason) : '';
             await sendEmail(
                 recipients.join(','),
-                `Document rejected: ${updated.title}`,
+                `Document rejected: ${deleted.title}`,
                 documentRejectedTemplate(
-                    updated.title,
+                    deleted.title,
                     APP_URL,
                     rejecter?.user.fullName || undefined,
                     reason || undefined
@@ -498,7 +494,7 @@ user.post('/documents/:docId/reject', async (req: Request, res: Response, next: 
             );
         }
 
-        res.json({ status: 'REJECTED' });
+        res.json({ status: 'DELETED' });
     } catch (e) { next(e); }
 });
 
