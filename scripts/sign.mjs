@@ -3,12 +3,12 @@
 import * as ed from '@noble/ed25519';
 
 if (process.argv.length < 4) {
-    console.error('Usage: node sign.mjs <PRIVATE_KEY_HEX> "message-to-sign"');
+    console.error('Usage: node sign.mjs "message-to-sign" <PRIVATE_KEY_HEX>');
     process.exit(1);
 }
 
-const privHex = process.argv[2];
-const message = process.argv[3];
+const message = process.argv[2];
+const privHex = process.argv[3];
 
 const privateKey = Buffer.from(privHex, 'hex');
 const msgBytes = Buffer.from(message, 'utf8');

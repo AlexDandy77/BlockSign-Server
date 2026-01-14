@@ -1,9 +1,26 @@
 # BlockSign Backend (Node.js + Prisma + PostgreSQL)
 
 Secure, scalable backend for **document notarization** and **auth**.  
-Tech stack: **Node.js (TypeScript)**, **Express**, **Prisma ORM**, **PostgreSQL**, **JWT** (access + refresh), **Argon2**, **Zod**, **Helmet**, **CORS**, **Rate limiting**, **Pino logging**.
+Tech stack: **Node.js (TypeScript)**, **Express**, **Prisma ORM**, **PostgreSQL**, **JWT** (access + refresh), **Argon2**, **Zod**, **Helmet**, **CORS**, **Rate limiting**, **Pino logging**, **Swagger UI**.
 
 > This README covers: setup, environment, run scripts, Docker, Prisma, and current API (Auth). It also includes fixes for common ESM/CJS & JWT pitfalls we encountered during setup.
+
+---
+
+## 📖 API Documentation
+
+Interactive API documentation is available via Swagger UI:
+
+- **Development**: http://localhost:4000/api-docs
+- **Production**: https://api.blocksign.md/api-docs
+- **OpenAPI JSON**: `/api-docs.json`
+
+The OpenAPI specification (`openapi.yaml`) documents all endpoints including:
+- Authentication (Ed25519 challenge-response)
+- User registration flow
+- Document management (create, sign, reject, verify)
+- Blockchain anchoring
+- Admin operations
 
 ---
 
@@ -32,13 +49,16 @@ src/
     routes/
         auth.routes.ts
         registration.routes.ts
-        admin.registration.routes.ts
+        admin.routes.ts
+        user.routes.ts
+        blockchain.routes.ts
     utils/
         tokens.ts
     app.ts
     env.ts
     prisma.ts
     server.ts
+openapi.yaml
 .env
 .gitignore
 CHANGELOG.md
@@ -53,7 +73,7 @@ tsconfig.json
 ---
 
 ## ✅ Prerequisites
-- **Node.js** 18+
+- **Node.js** 20+ (required for Prisma v7)
 - **Docker** (for local Postgres) or a running PostgreSQL 14+ instance
 - **npm**
 

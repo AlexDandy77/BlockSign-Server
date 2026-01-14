@@ -4,13 +4,14 @@ import { z } from 'zod';
 import * as ed from '@noble/ed25519';
 import { sendEmail, otpTemplate, adminNotificationTemplate } from '../email/mailer.js';
 import { createEmailOtp, verifyEmailOtp } from '../email/otp.js';
+import { registrationLimiter } from '../middlewares/rateLimit.js';
 
 export const registration = Router();
 
 // Send OTP to verify email
 const startSchema = z.object({ email: z.string() });
 
-registration.post('/request/start', async (req, res, next) => {
+registration.post('/request/start', registrationLimiter, async (req, res, next) => {
     try {
         const { email } = startSchema.parse(req.body);
 
@@ -27,7 +28,7 @@ registration.post('/request/start', async (req, res, next) => {
 // Verify OTP — unlock the next step
 const verifySchema = z.object({ email: z.string(), code: z.string().length(6) });
 
-registration.post('/request/verify', async (req, res, next) => {
+registration.post('/request/verify', registrationLimiter, async (req, res, next) => {
     try {
         const { email, code } = verifySchema.parse(req.body);
         const { ok, reason } = await verifyEmailOtp(email, code);
@@ -46,7 +47,7 @@ const requestSchema = z.object({
     username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/),
 });
 
-registration.post('/request', async (req, res, next) => {
+registration.post('/request', registrationLimiter, async (req, res, next) => {
     try {
         const data = requestSchema.parse(req.body);
 
@@ -82,7 +83,7 @@ const completeSchema = z.object({
     signatureB64: z.string()
 });
 
-registration.post('/complete', async (req, res, next) => {
+registration.post('/complete', registrationLimiter, async (req, res, next) => {
     try {
         const { token, publicKeyEd25519Hex, signatureB64 } = completeSchema.parse(req.body);
 

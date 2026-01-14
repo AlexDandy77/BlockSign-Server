@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [2.3.0] - 2026-01-14
+### Added
+- **OpenAPI specification** (`openapi.yaml`) with complete API documentation covering all endpoints.
+- **Swagger UI** integration at `/api-docs` for interactive API exploration.
+- **JSON endpoint** at `/api-docs.json` for programmatic spec access.
+- **Rate limiting middleware** applied to all public endpoints:
+  - `authLimiter` (30 req/min) for `/auth/challenge` and `/auth/complete`
+  - `registrationLimiter` (15 req/min) for all registration endpoints
+  - `documentLimiter` (30 req/min) for public document verification
+  - `generalLimiter` (100 req/min) for health checks
+
+### Changed
+- **Health endpoint** moved from `/health` to `/api/v1/health` for consistency.
+- **Rate limiter** windows adjusted from 15 minutes to 1 minute for faster reset.
+
+### Fixed
+- **Rejection email** now uses sanitized reason to prevent XSS in email templates.
+- **sign.mjs script** argument order corrected (message first, then private key).
+
+---
 ## [2.2.0] - 2025-12-16
 ### Added
 - **Verification** if a document's hash already exists in the database, refuse the creation and return 409. This is done to exclude duplicate files from the db.

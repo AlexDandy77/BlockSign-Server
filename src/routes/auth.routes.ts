@@ -6,13 +6,14 @@ import { addMinutes } from 'date-fns';
 import { addDays } from 'date-fns';
 import { ed } from '../crypto/ed25519.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/tokens.js';
+import { authLimiter } from '../middlewares/rateLimit.js';
 
 export const auth = Router();
 
 // TODO: integrate username in auth (user enters username or email)
 // Challenge routes
 const startSchema = z.object({ email: z.string() });
-auth.post('/challenge', async (req, res, next) => {
+auth.post('/challenge', authLimiter, async (req, res, next) => {
     try {
         const { email } = startSchema.parse(req.body);
         const user = await prisma.user.findUnique({ where: { email } });
@@ -32,7 +33,7 @@ const completeSchema = z.object({
     signatureB64: z.string()
 });
 
-auth.post('/complete', async (req, res, next) => {
+auth.post('/complete', authLimiter, async (req, res, next) => {
     try {
         const { email, challenge, signatureB64 } = completeSchema.parse(req.body);
 

@@ -1,0 +1,1185 @@
+openapi: 3.0.3
+info:
+  title: BlockSign API
+  description: |
+    BlockSign is a secure document signing platform with blockchain anchoring.
+    
+    ## Authentication
+    The API uses Ed25519 challenge-response authentication:
+    1. Request a challenge via /auth/challenge
+    2. Sign the challenge with your Ed25519 private key
+    3. Complete authentication via /auth/complete to receive JWT tokens
+    
+    Protected endpoints require a Bearer token in the Authorization header.
+    
+    ## Document Signing Flow
+    1. Owner creates document with PDF and list of participants
+    2. Participants receive email notification
+    3. Each participant signs the canonical payload with their Ed25519 key
+    4. When all required signatures are collected, document is anchored to Polygon blockchain
+  version: 1.0.0
+  contact:
+    name: BlockSign Support
+    email: blocksigncloud@gmail.com
+  license:
+    name: Alexei Pavlovschii, BlockSign. All rights reserved.
+
+servers:
+  - url: https://api.blocksign.md/api/v1
+    description: Production server
+  - url: http://localhost:4000/api/v1
+    description: Development server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Auth
+    description: Authentication endpoints (Ed25519 challenge-response)
+  - name: Registration
+    description: User registration flow with OTP verification
+  - name: User
+    description: User profile and document management
+  - name: Documents
+    description: Document operations (create, sign, reject, verify)
+  - name: Admin
+    description: Admin-only operations (requires ADMIN role)
+  - name: Blockchain
+    description: Blockchain anchoring management (admin only)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token from /auth/complete or /auth/refresh
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid or expired token"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum: [USER, ADMIN]
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, SIGNED, REJECTED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        mimeType:
+          type: string
+          example: "application/pdf"
+        sizeBytes:
+          type: integer
+        myRole:
+          type: string
+          enum: [OWNER, PARTICIPANT, VIEWER]
+        progress:
+          type: object
+          properties:
+            totalRequired:
+              type: integer
+            totalSigned:
+              type: integer
+        owner:
+          $ref: '#/components/schemas/UserSummary'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+        signatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
+
+    Participant:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        required:
+          type: boolean
+        decision:
+          type: string
+          enum: [SIGNED, REJECTED]
+          nullable: true
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Signature:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        alg:
+          type: string
+          example: "Ed25519"
+        signedAt:
+          type: string
+          format: date-time
+
+    BlockchainInfo:
+      type: object
+      properties:
+        txId:
+          type: string
+          description: Polygon transaction hash
+        network:
+          type: string
+          example: "polygon"
+        anchoredAt:
+          type: string
+          format: date-time
+        explorerUrl:
+          type: string
+          format: uri
+
+    RegistrationRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+        idnp:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, APPROVED, DECLINED, COMPLETED]
+        createdAt:
+          type: string
+          format: date-time
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  # ==================== AUTH ====================
+  /auth/challenge:
+    post:
+      tags: [Auth]
+      summary: Request login challenge
+      description: Generates a random challenge for Ed25519 signature authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+      responses:
+        '200':
+          description: Challenge generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  challenge:
+                    type: string
+                    description: Base64url-encoded random challenge (valid for 5 minutes)
+                    example: "dGhpcyBpcyBhIHJhbmRvbSBjaGFsbGVuZ2U"
+        '404':
+          description: User not found or public key not set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/complete:
+    post:
+      tags: [Auth]
+      summary: Complete authentication
+      description: Verifies Ed25519 signature and issues JWT tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, challenge, signatureB64]
+              properties:
+                email:
+                  type: string
+                  format: email
+                challenge:
+                  type: string
+                  description: The challenge received from /auth/challenge
+                signatureB64:
+                  type: string
+                  description: Base64-encoded Ed25519 signature of the challenge
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    description: JWT access token (15 min expiry)
+                  refreshToken:
+                    type: string
+                    description: JWT refresh token (7 day expiry)
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      email:
+                        type: string
+                      fullName:
+                        type: string
+                      role:
+                        type: string
+        '400':
+          description: Invalid or expired challenge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Signature verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: Uses refresh token from cookie to issue new token pair
+      responses:
+        '200':
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      description: Invalidates the current refresh token
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  # ==================== REGISTRATION ====================
+  /registration/request/start:
+    post:
+      tags: [Registration]
+      summary: Start registration (send OTP)
+      description: Sends a 6-digit OTP to the provided email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /registration/request/verify:
+    post:
+      tags: [Registration]
+      summary: Verify OTP
+      description: Verifies the 6-digit OTP sent to email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code]
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                  example: "123456"
+      responses:
+        '200':
+          description: OTP verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          description: Invalid code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /registration/request:
+    post:
+      tags: [Registration]
+      summary: Submit registration request
+      description: Submits user details for admin approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, fullName, phone, idnp, username]
+              properties:
+                email:
+                  type: string
+                  format: email
+                fullName:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                phone:
+                  type: string
+                  minLength: 5
+                  maxLength: 20
+                idnp:
+                  type: string
+                  minLength: 5
+                  maxLength: 20
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                  pattern: '^[a-zA-Z0-9._-]+$'
+      responses:
+        '201':
+          description: Request submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requestId:
+                    type: string
+                    format: uuid
+        '409':
+          description: Request already exists or username taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /registration/complete:
+    post:
+      tags: [Registration]
+      summary: Complete registration
+      description: Finalizes registration with Ed25519 public key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, publicKeyEd25519Hex, signatureB64]
+              properties:
+                token:
+                  type: string
+                  description: Token from finalization email
+                publicKeyEd25519Hex:
+                  type: string
+                  minLength: 64
+                  description: Ed25519 public key in hex format
+                signatureB64:
+                  type: string
+                  description: Base64 signature of the token
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      email:
+                        type: string
+                      fullName:
+                        type: string
+        '400':
+          description: Invalid token or signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== USER ====================
+  /user/me:
+    get:
+      tags: [User]
+      summary: Get current user profile
+      description: Returns user profile and all related documents
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile with documents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  documents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Document'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/documents:
+    post:
+      tags: [Documents]
+      summary: Create document
+      description: Creates a new document with PDF file and participant list
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, sha256Hex, docTitle, participantsUsernames, creatorSignatureB64]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF file (max 50MB)
+                sha256Hex:
+                  type: string
+                  minLength: 64
+                  maxLength: 64
+                  description: SHA-256 hash of the file
+                docTitle:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                participantsUsernames:
+                  type: array
+                  items:
+                    type: string
+                  description: List of participant usernames
+                creatorSignatureB64:
+                  type: string
+                  description: Creator's Ed25519 signature of canonical payload
+      responses:
+        '200':
+          description: Document created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documentId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid request or signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Document with this hash already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  documentId:
+                    type: string
+
+  /user/documents/{id}/view:
+    get:
+      tags: [Documents]
+      summary: View document PDF
+      description: Streams PDF for viewing in browser (inline)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: PDF file stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Not authorized to view document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/documents/{id}/url:
+    get:
+      tags: [Documents]
+      summary: Get presigned download URL
+      description: Returns a 10-minute presigned S3 URL (legacy)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Presigned URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                  expiresIn:
+                    type: integer
+                    example: 600
+
+  /user/documents/{docId}/sign:
+    post:
+      tags: [Documents]
+      summary: Sign document
+      description: Add participant signature to document
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signatureB64]
+              properties:
+                signatureB64:
+                  type: string
+                  description: Ed25519 signature of canonical payload
+      responses:
+        '200':
+          description: Signature added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [PENDING, SIGNED]
+                  blockchain:
+                    $ref: '#/components/schemas/BlockchainInfo'
+        '400':
+          description: Already signed or invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Not a participant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/documents/{docId}/reject:
+    post:
+      tags: [Documents]
+      summary: Reject document
+      description: Reject and delete document (participant only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Optional rejection reason
+      responses:
+        '200':
+          description: Document deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "DELETED"
+        '403':
+          description: Not a participant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/documents/{docId}/blockchain:
+    get:
+      tags: [Documents]
+      summary: Get blockchain verification
+      description: Returns blockchain anchoring details for a document
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Blockchain info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anchored:
+                    type: boolean
+                  transaction:
+                    $ref: '#/components/schemas/BlockchainInfo'
+                  message:
+                    type: string
+
+  # ==================== PUBLIC DOCUMENTS ====================
+  /documents/verify:
+    post:
+      tags: [Documents]
+      summary: Verify document by PDF
+      description: Upload a PDF to check if it's been signed and anchored
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF file to verify
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  match:
+                    type: boolean
+                  sha256Hex:
+                    type: string
+                  document:
+                    $ref: '#/components/schemas/Document'
+
+  # ==================== ADMIN ====================
+  /admin/me:
+    get:
+      tags: [Admin]
+      summary: Get admin profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Admin profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  admin:
+                    $ref: '#/components/schemas/User'
+
+  /admin/registrations:
+    get:
+      tags: [Admin]
+      summary: Get pending registrations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Pending registration requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RegistrationRequest'
+
+  /admin/registrations/{id}/approve:
+    post:
+      tags: [Admin]
+      summary: Approve registration
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '404':
+          description: Not found or not pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/registrations/{id}/decline:
+    post:
+      tags: [Admin]
+      summary: Decline registration
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Declined
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: take
+          in: query
+          schema:
+            type: integer
+            default: 25
+            maximum: 100
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+
+  /admin/users/{id}:
+    get:
+      tags: [Admin]
+      summary: Get user by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== BLOCKCHAIN (Admin) ====================
+  /admin/blockchain/wallet/info:
+    get:
+      tags: [Blockchain]
+      summary: Get wallet info
+      description: Returns company Polygon wallet address and balance
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Wallet info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+                    example: "0x1234...abcd"
+                  balance:
+                    type: string
+                    example: "1.5 MATIC"
+                  totalAnchored:
+                    type: integer
+                  network:
+                    type: string
+                  explorerBase:
+                    type: string
+
+  /admin/blockchain/documents:
+    get:
+      tags: [Blockchain]
+      summary: List anchored documents
+      description: Returns all blockchain-anchored documents
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Anchored documents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        title:
+                          type: string
+                        sha256Hex:
+                          type: string
+                        blockchainTxId:
+                          type: string
+                        blockchainNetwork:
+                          type: string
+                        anchoredAt:
+                          type: string
+                          format: date-time
+                        explorerUrl:
+                          type: string
+                        status:
+                          type: string
+                        owner:
+                          type: object
+                          properties:
+                            fullName:
+                              type: string
+                            username:
+                              type: string
+                  total:
+                    type: integer
+
+  /admin/blockchain/stats:
+    get:
+      tags: [Blockchain]
+      summary: Get blockchain stats
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Blockchain statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalDocuments:
+                    type: integer
+                  totalSigned:
+                    type: integer
+                  totalAnchored:
+                    type: integer
+                  anchorSuccessRate:
+                    type: string
+                    example: "98.50%"
+                  pendingAnchoring:
+                    type: integer
+
+  /admin/blockchain/verify/{txId}:
+    get:
+      tags: [Blockchain]
+      summary: Verify transaction
+      description: Verifies a blockchain transaction by txId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: txId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    type: object
+                    properties:
+                      txId:
+                        type: string
+                      blockNumber:
+                        type: integer
+                      confirmed:
+                        type: boolean
+                      metadata:
+                        type: object
+                  document:
+                    type: object
+                    nullable: true
+
+  /admin/blockchain/documents/{docId}/retry-anchor:
+    post:
+      tags: [Blockchain]
+      summary: Retry anchoring
+      description: Retry blockchain anchoring for a signed document
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Anchoring successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  blockchain:
+                    $ref: '#/components/schemas/BlockchainInfo'
+        '400':
+          description: Document not signed or already anchored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

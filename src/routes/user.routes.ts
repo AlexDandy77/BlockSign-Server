@@ -8,6 +8,7 @@ import { ed } from '../crypto/ed25519.js';
 import { sendEmail, documentReviewSignTemplate, documentSignedTemplate, documentRejectedTemplate } from '../email/mailer.js';
 import { putPdfObject, getPresignedGetUrl, streamObject, deleteObject } from '../storage/s3.js';
 import { getPolygonAnchor } from '../blockchain/polygon.js';
+import { documentLimiter } from '../middlewares/rateLimit.js';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
@@ -489,7 +490,7 @@ user.post('/documents/:docId/reject', async (req: Request, res: Response, next: 
                     deleted.title,
                     APP_URL,
                     rejecter?.user.fullName || undefined,
-                    reason || undefined
+                    sanitizedReason || undefined
                 )
             );
         }
@@ -499,7 +500,7 @@ user.post('/documents/:docId/reject', async (req: Request, res: Response, next: 
 });
 
 // Public verification of documents by uploading a PDF (no authentication required)
-publicDocuments.post('/verify',
+publicDocuments.post('/verify', documentLimiter,
     upload.single('file'),
     async (req: Request, res: Response, next: NextFunction) => {
         try {
