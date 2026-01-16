@@ -94,8 +94,9 @@ export function otpTemplate(code: string) {
 }
 
 export function finalizeTemplate(email: string, token: string, linkBase: string) {
-    const url = `${linkBase.replace(/\/$/, '')}/register/finish?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
-    const escapedUrl = escapeHtml(url);
+    const webUrl = `${linkBase.replace(/\/$/, '')}/register/finish?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    const mobileUrl = `blocksign://complete-registration?token=${encodeURIComponent(token)}`;
+    const escapedWebUrl = escapeHtml(webUrl);
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -121,17 +122,28 @@ export function finalizeTemplate(email: string, token: string, linkBase: string)
                             <h2 style="margin: 0 0 24px; font-size: 32px; font-weight: 600; color: #1a1a1a; line-height: 1.3; text-align: center;">Finish your BlockSign registration</h2>
                             <p style="margin: 0 0 32px; font-size: 20px; line-height: 1.6; color: #4a4a4a; text-align: center;">Great news! Your registration request has been approved. Click the button below to finalize your account setup and complete your registration:</p>
                             
-                            <!-- CTA Button -->
+                            <!-- Mobile App CTA Button -->
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                 <tr>
-                                    <td align="center" style="padding: 20px 0;">
-                                        <a href="${url}" style="display: inline-block; background-color: #6266ea; color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 10px; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;">Finish Registration</a>
+                                    <td align="center" style="padding: 20px 0 10px;">
+                                        <a href="${mobileUrl}" style="display: inline-block; background-color: #6266ea; color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 10px; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;">Open in BlockSign App</a>
                                     </td>
                                 </tr>
                             </table>
                             
-                            <p style="margin: 32px 0 0; font-size: 18px; line-height: 1.6; color: #6b6b6b; text-align: center;">If the button doesn't work, copy and paste this link into your browser:</p>
-                            <p style="margin: 16px 0 0; font-size: 16px; line-height: 1.6; color: #6266ea; word-break: break-all; font-family: 'Courier New', monospace; background-color: #f8f9fa; padding: 12px; border-radius: 6px; text-align: center;">${escapedUrl}</p>
+                            <p style="margin: 16px 0; font-size: 16px; line-height: 1.6; color: #8b8b8b; text-align: center;">— or —</p>
+                            
+                            <!-- Web Fallback Button -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding: 10px 0 20px;">
+                                        <a href="${webUrl}" style="display: inline-block; background-color: #ffffff; color: #6266ea; text-decoration: none; padding: 16px 36px; border-radius: 10px; font-size: 18px; font-weight: 600; letter-spacing: 0.3px; border: 2px solid #6266ea;">Continue on Web</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 32px 0 0; font-size: 18px; line-height: 1.6; color: #6b6b6b; text-align: center;">If the buttons don't work, copy and paste this link into your browser:</p>
+                            <p style="margin: 16px 0 0; font-size: 16px; line-height: 1.6; color: #6266ea; word-break: break-all; font-family: 'Courier New', monospace; background-color: #f8f9fa; padding: 12px; border-radius: 6px; text-align: center;">${escapedWebUrl}</p>
                             
                             <p style="margin: 40px 0 0; font-size: 18px; line-height: 1.6; color: #6b6b6b; text-align: center;">This link expires in <strong>30 minutes</strong>. Please complete your registration before it expires.</p>
                         </td>
@@ -196,7 +208,7 @@ export function documentReviewSignTemplate(documentTitle: string, appUrl: string
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                 <tr>
                                     <td align="center" style="padding: 20px 0 0;">
-                                        <a href="${appUrl}" style="display: inline-block; background-color: #6266ea; color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 10px; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;">View Document</a>
+                                        <a href="${escapedAppUrl}" style="display: inline-block; background-color: #6266ea; color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 10px; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;">View Document</a>
                                     </td>
                                 </tr>
                             </table>
@@ -286,7 +298,7 @@ export function documentSignedTemplate(documentTitle: string, appUrl: string, bl
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                 <tr>
                                     <td align="center" style="padding: 20px 0 0;">
-                                        <a href="${appUrl}" style="display: inline-block; background-color: #6266ea; color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 10px; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;">View Document</a>
+                                        <a href="${escapedAppUrl}" style="display: inline-block; background-color: #6266ea; color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 10px; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;">View Document</a>
                                     </td>
                                 </tr>
                             </table>
@@ -372,7 +384,7 @@ export function documentRejectedTemplate(documentTitle: string, appUrl: string, 
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                 <tr>
                                     <td align="center" style="padding: 20px 0 0;">
-                                        <a href="${appUrl}" style="display: inline-block; background-color: #6266ea; color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 10px; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;">View Details</a>
+                                        <a href="${escapedAppUrl}" style="display: inline-block; background-color: #6266ea; color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 10px; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;">View Details</a>
                                     </td>
                                 </tr>
                             </table>
