@@ -97,6 +97,7 @@ export function finalizeTemplate(email: string, token: string, linkBase: string)
     const webUrl = `${linkBase.replace(/\/$/, '')}/register/finish?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
     const mobileUrl = `blocksign://complete-registration?token=${encodeURIComponent(token)}`;
     const escapedWebUrl = escapeHtml(webUrl);
+    const escapedMobileUrl = escapeHtml(mobileUrl);
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -142,8 +143,11 @@ export function finalizeTemplate(email: string, token: string, linkBase: string)
                                 </tr>
                             </table>
                             
-                            <p style="margin: 32px 0 0; font-size: 18px; line-height: 1.6; color: #6b6b6b; text-align: center;">If the buttons don't work, copy and paste this link into your browser:</p>
-                            <p style="margin: 16px 0 0; font-size: 16px; line-height: 1.6; color: #6266ea; word-break: break-all; font-family: 'Courier New', monospace; background-color: #f8f9fa; padding: 12px; border-radius: 6px; text-align: center;">${escapedWebUrl}</p>
+                            <p style="margin: 32px 0 0; font-size: 18px; line-height: 1.6; color: #6b6b6b; text-align: center;">If the buttons don't work, copy and paste either of those links:</p>
+                            <p style="margin: 16px 0 0; font-size: 14px; line-height: 1.4; color: #8b8b8b; text-align: center;">Mobile App:</p>
+                            <p style="margin: 8px 0 0; font-size: 16px; line-height: 1.6; color: #6266ea; word-break: break-all; font-family: 'Courier New', monospace; background-color: #f8f9fa; padding: 12px; border-radius: 6px; text-align: center;">${escapedMobileUrl}</p>
+                            <p style="margin: 16px 0 0; font-size: 14px; line-height: 1.4; color: #8b8b8b; text-align: center;">Web Browser:</p>
+                            <p style="margin: 8px 0 0; font-size: 16px; line-height: 1.6; color: #6266ea; word-break: break-all; font-family: 'Courier New', monospace; background-color: #f8f9fa; padding: 12px; border-radius: 6px; text-align: center;">${escapedWebUrl}</p>
                             
                             <p style="margin: 40px 0 0; font-size: 18px; line-height: 1.6; color: #6b6b6b; text-align: center;">This link expires in <strong>30 minutes</strong>. Please complete your registration before it expires.</p>
                         </td>
