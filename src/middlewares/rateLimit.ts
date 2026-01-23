@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 // Auth endpoints - strict (brute force protection)
 export const authLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
-    max: 30,
+    max: 50,
     standardHeaders: true,
     legacyHeaders: false
 });
@@ -11,7 +11,7 @@ export const authLimiter = rateLimit({
 // Registration endpoints - moderate (prevent spam)
 export const registrationLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
-    max: 15,
+    max: 35,
     standardHeaders: true,
     legacyHeaders: false
 });
@@ -19,7 +19,7 @@ export const registrationLimiter = rateLimit({
 // Document operations - moderate (prevent abuse)
 export const documentLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
-    max: 30,
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false
 });
@@ -27,7 +27,7 @@ export const documentLimiter = rateLimit({
 // General purpose - lenient
 export const generalLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
-    max: 100,
+    max: 300,
     standardHeaders: true,
     legacyHeaders: false
 });
