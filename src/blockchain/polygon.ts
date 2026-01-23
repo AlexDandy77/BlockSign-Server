@@ -60,12 +60,25 @@ export class PolygonAnchor {
 
             console.log(`[Polygon] Metadata size: ${metadataHex.length} chars`);
 
+            // Get current gas prices and boost priority fee for rapid confirmation
+            const feeData = await this.provider.getFeeData();
+            const baseFee = feeData.maxFeePerGas ?? ethers.parseUnits('100', 'gwei');
+            const priorityFee = feeData.maxPriorityFeePerGas ?? ethers.parseUnits('30', 'gwei');
+            
+            // Boost priority fee by 50% for faster inclusion (~18 secs)
+            const boostedPriorityFee = (priorityFee * 150n) / 100n;
+            const maxFee = baseFee + boostedPriorityFee;
+
+            console.log(`[Polygon] Gas: maxFee=${ethers.formatUnits(maxFee, 'gwei')} gwei, priorityFee=${ethers.formatUnits(boostedPriorityFee, 'gwei')} gwei`);
+
             // Create transaction with metadata in data field
             const tx = await this.wallet.sendTransaction({
                 to: this.wallet.address, // Send to self (company address)
                 value: 0n, // No value transfer, just data
                 data: metadataHex,
-                gasLimit: 100000n
+                gasLimit: 100000n,
+                maxFeePerGas: maxFee,
+                maxPriorityFeePerGas: boostedPriorityFee
             });
 
             console.log(`[Polygon] Transaction sent: ${tx.hash}`);
