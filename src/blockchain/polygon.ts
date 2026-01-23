@@ -61,14 +61,11 @@ export class PolygonAnchor {
             console.log(`[Polygon] Metadata size: ${metadataHex.length} chars`);
 
             // Create transaction with metadata in data field
-            // Manually set gas fees to avoid Polygon gas station API issues
             const tx = await this.wallet.sendTransaction({
                 to: this.wallet.address, // Send to self (company address)
                 value: 0n, // No value transfer, just data
                 data: metadataHex,
-                gasLimit: 100000n,
-                maxFeePerGas: ethers.parseUnits('200', 'gwei'), // Maximum fee per gas
-                maxPriorityFeePerGas: ethers.parseUnits('50', 'gwei') // Miner tip
+                gasLimit: 100000n
             });
 
             console.log(`[Polygon] Transaction sent: ${tx.hash}`);
