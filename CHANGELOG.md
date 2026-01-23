@@ -17,7 +17,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **Health endpoint** moved from `/health` to `/api/v1/health` for consistency.
-- **Rate limiter** windows adjusted from 15 minutes to 1 minute for faster reset.
+- **Rate limiter** windows adjusted from 15 minutes to 1 minute for faster reset, changed max number.
 
 ### Fixed
 - **Rejection email** now uses sanitized reason to prevent XSS in email templates.
