@@ -6,7 +6,7 @@ import multer from 'multer';
 import crypto from 'crypto';
 import { ed } from '../crypto/ed25519.js';
 import { sendEmail, documentReviewSignTemplate, documentSignedTemplate, documentRejectedTemplate } from '../email/mailer.js';
-import { putPdfObject, getPresignedGetUrl, streamObject, deleteObject } from '../storage/s3.js';
+import { putPdfObject, getPresignedGetUrl, streamObject, deleteObject, moveDocumentToSignedBucket, getBucketForStatus } from '../storage/s3.js';
 import { getPolygonAnchor } from '../blockchain/polygon.js';
 import { documentLimiter } from '../middlewares/rateLimit.js';
 
@@ -251,6 +251,7 @@ user.get('/documents/:id/view', async (req: Request, res: Response, next: NextFu
                 title: true,
                 ownerId: true,
                 storageKey: true,
+                status: true,
                 participants: { select: { userId: true } }
             }
         });
@@ -262,7 +263,8 @@ user.get('/documents/:id/view', async (req: Request, res: Response, next: NextFu
 
         if (!doc.storageKey) return res.status(409).json({ error: 'File not available' });
 
-        const s3Object = await streamObject(doc.storageKey);
+        const bucket = getBucketForStatus(doc.status);
+        const s3Object = await streamObject(doc.storageKey, bucket);
         
         const filename = doc.title ? `${doc.title}.pdf` : 'document.pdf';
         res.setHeader('Content-Type', 'application/pdf');
@@ -293,6 +295,7 @@ user.get('/documents/:id/url', async (req: Request, res: Response, next: NextFun
                 id: true,
                 ownerId: true,
                 storageKey: true,
+                status: true,
                 participants: { select: { userId: true } }
             }
         });
@@ -304,7 +307,8 @@ user.get('/documents/:id/url', async (req: Request, res: Response, next: NextFun
 
         if (!doc.storageKey) return res.status(409).json({ error: 'File not available' });
 
-        const url = await getPresignedGetUrl(doc.storageKey, 10 * 60);
+        const bucket = getBucketForStatus(doc.status);
+        const url = await getPresignedGetUrl(doc.storageKey, bucket, 10 * 60);
         res.json({ url, expiresIn: 600 });
     } catch (e) { next(e); }
 });
@@ -367,6 +371,17 @@ user.post('/documents/:docId/sign', async (req: Request, res: Response, next: Ne
                     participants: { include: { user: { select: { email: true, username: true } } } }
                 }
             });
+
+            // Move document to signed bucket (with 10-day lifecycle)
+            try {
+                if (updated.storageKey) {
+                    await moveDocumentToSignedBucket(updated.storageKey);
+                    console.log(`Document ${docId} moved to signed bucket with 10-day lifecycle`);
+                }
+            } catch (s3Error) {
+                console.error('Failed to move document to signed bucket:', s3Error);
+                // Don't fail the signing process if S3 move fails
+            }
 
             let blockchainInfo: any = null;
 
@@ -467,9 +482,10 @@ user.post('/documents/:docId/reject', async (req: Request, res: Response, next: 
             }
         });
 
-        // Best-effort delete from S3
+        // Best-effort delete from S3 (use correct bucket based on status)
         if (deleted.storageKey) {
-            deleteObject(deleted.storageKey).catch((err) => {
+            const bucket = getBucketForStatus(deleted.status);
+            deleteObject(deleted.storageKey, bucket).catch((err) => {
                 console.error('Failed to delete S3 object for rejected document', err);
             });
         }

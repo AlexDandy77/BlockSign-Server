@@ -104,6 +104,15 @@ SMTP_USER=<email@address.user>
 SMTP_PASS=<password-user>
 MAIL_FROM="BlockSign <info@blocksign.md>"
 APP_URL=http://localhost:5173
+
+# AWS S3 Storage (Two-Bucket Strategy)
+AWS_REGION=us-east-1
+# Pending bucket: no lifecycle policy (for unsigned/partially signed documents)
+S3_BUCKET_PENDING=blocksign-documents-pending
+# Signed bucket: 10-day lifecycle policy (for fully signed documents)
+S3_BUCKET_SIGNED=blocksign-documents-signed
+# Legacy support (uses pending bucket)
+S3_BUCKET=blocksign-documents-pending
 ```
 
 > **Tip:** If you ever see `Error: "expiresIn" should be a number of seconds or string representing a timespan`, check for smart quotes in `.env` or undefined env vars.

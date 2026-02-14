@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/).
 
 ---
+## [2.4.0] - 2026-02-14
+### Added
+- **Two-bucket S3 storage strategy** for optimized document lifecycle management:
+  - **Pending bucket** (`S3_BUCKET_PENDING`): Stores unsigned/partially signed documents with no time restriction
+  - **Signed bucket** (`S3_BUCKET_SIGNED`): Stores fully signed documents with 10-day lifecycle policy
+  - Documents automatically moved from pending to signed bucket when all parties complete signing
+- **New S3 functions**:
+  - `moveDocumentToSignedBucket()`: Copies document to signed bucket and deletes from pending
+  - `getBucketForStatus()`: Returns correct bucket based on document status
+- **Comprehensive documentation** in `docs/S3-BUCKET-SETUP.md` covering AWS configuration, IAM permissions, and lifecycle policies
+
+### Changed
+- **Document retention policy**: Documents now expire 10 days after all parties sign (instead of 7 days from upload)
+- **S3 storage functions** updated to support bucket parameter:
+  - `putPdfObject()`, `getPresignedGetUrl()`, `deleteObject()`, `streamObject()` now accept optional bucket parameter
+- **Document access endpoints** automatically determine correct bucket based on document status
+- **Environment variables**: Added `S3_BUCKET_PENDING` and `S3_BUCKET_SIGNED` (legacy `S3_BUCKET` still supported)
+
+### Fixed
+- **Document expiration timing**: Prevents documents from expiring before all parties have signed
+- **Storage optimization**: Unsigned documents no longer count against time-based retention limits
+
+---
 ## [2.3.0] - 2026-01-14
 ### Added
 - **OpenAPI specification** (`openapi.yaml`) with complete API documentation covering all endpoints.
